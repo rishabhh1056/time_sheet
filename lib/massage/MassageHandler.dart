@@ -46,6 +46,38 @@ class MessageHandler {
     );
   }
 
+  static void ProjectDetails() {
+    Fluttertoast.showToast(
+      msg: "project Added",
+      backgroundColor: Colors.green,
+      fontSize: 14,
+      textColor: Colors.white,
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.TOP,
+    );
+  }
+
+  static void ProjectDetailsFailed(String error) {
+    Fluttertoast.showToast(
+      msg: "projects Added Failed $error",
+      backgroundColor: Colors.red,
+      fontSize: 14,
+      textColor: Colors.white,
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.TOP,
+    );
+  }
+
+  static void somethingWentWrong() {
+    Fluttertoast.showToast(
+      msg: "something went wrong ",
+      backgroundColor: Colors.red,
+      fontSize: 14,
+      textColor: Colors.white,
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.TOP,
+    );
+  }
   static void taskAssigned() {
     Fluttertoast.showToast(
       msg: "Task Assign Successful",

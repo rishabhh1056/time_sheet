@@ -1,23 +1,18 @@
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:time_sheet/adminDashboard/adminDashboard.dart';
+import 'dart:convert';
 
-import '../HrDashboard/HrDashboard.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:time_sheet/HrDashboard/HrDashboard.dart';
 import '../firebaseAuth/FirebaseAuth.dart';
 import '../massage/MassageHandler.dart';
-import '../userDashboard/userDashboard.dart';
-
 
 class HrLoginScreen extends StatefulWidget {
   @override
-  _LoginPageState createState() => _LoginPageState();
+  _HrLoginScreenState createState() => _HrLoginScreenState();
 }
 
-class _LoginPageState extends State<HrLoginScreen> {
+class _HrLoginScreenState extends State<HrLoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -27,100 +22,8 @@ class _LoginPageState extends State<HrLoginScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus();
   }
 
-
-
-  Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString('email');
-    final savedPassword = prefs.getString('password');
-
-    if (savedEmail != null && savedPassword != null) {
-      User? user = await _auth.SigninWithEmailAndPassword(savedEmail, savedPassword);
-      if (user != null) {
-        setState(() {
-          email = savedEmail;
-        });
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EmployeeDashboard(userEmail: email!),
-          ),
-        );
-      }
-    }
-  }
-
-  // void _login() async {
-  //   if (_formKey.currentState!.validate()) {
-  //     String username = _usernameController.text.trim();
-  //     String password = _passwordController.text.trim();
-  //
-  //
-  //     User? user = await _auth.SigninWithEmailAndPassword(username, password);
-  //
-  //     int? isAdmin;
-  //
-  //     try {
-  //       DocumentSnapshot documentSnapshot = await FirebaseFirestore.instance
-  //           .collection("EmployeeDetails")
-  //           .doc(username)
-  //           .get();
-  //
-  //       if (documentSnapshot.exists && documentSnapshot.get("admin") != null) {
-  //         isAdmin = documentSnapshot.get("admin");
-  //       }
-  //     } catch (e) {
-  //       print('Error fetching data: $e');
-  //     }
-  //
-  //     if (user != null) {
-  //       if (isAdmin == 1) {
-  //         email = username;
-  //         MessageHandler.showLoginSuccess();
-  //         final prefs = await SharedPreferences.getInstance();
-  //         await prefs.setString('email', username);
-  //         await prefs.setString('password', password);
-  //         Navigator.pushReplacement(
-  //           context,
-  //           MaterialPageRoute(
-  //             builder: (context) => HrDashboard(),
-  //           ),
-  //         );
-  //       } else {
-  //         email = username;
-  //         MessageHandler.showLoginSuccess();
-  //         final prefs = await SharedPreferences.getInstance();
-  //         await prefs.setString('email', username);
-  //         await prefs.setString('password', password);
-  //         Navigator.pushReplacement(
-  //           context,
-  //           MaterialPageRoute(
-  //             builder: (context) => EmployeeDashboard(userEmail: email!),
-  //           ),
-  //         );
-  //       }
-  //     } else {
-  //       MessageHandler.showLoginFailed();
-  //     }
-  //   }
-  // }
-
-  void _logidemo(){
-    if (_formKey.currentState!.validate()) {
-      String username = _usernameController.text.trim();
-      String password = _passwordController.text.trim();
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HrDashboard(),
-        ),
-      );
-    }
-  }
 
 
 
@@ -140,65 +43,107 @@ class _LoginPageState extends State<HrLoginScreen> {
                   Row(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.arrow_back, color: Colors.black, size: 30,),
+                        icon: Icon(Icons.arrow_back, color: Colors.black, size: 30),
                         onPressed: () {
                           Navigator.pop(context);
                         },
                       ),
-                      Text("Login As Human Resources", style: TextStyle(fontWeight: FontWeight.w400),)
+                      SizedBox(width: 10),
+                      Text(
+                        "Login As Human Resources",
+                        style: TextStyle(fontWeight: FontWeight.w400, fontSize: 20),
+                      ),
                     ],
                   ),
                   SizedBox(height: 20),
-                  Align(
-                    alignment: Alignment.topLeft,
+                  Center(
+                    child: CircleAvatar(
+                      radius: 75,
+                      backgroundImage: AssetImage('assets/images/hr.jpg'), // Add your image path here
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Center(
                     child: Text(
-                      'Login with \nUsername and password',
-                      style: TextStyle(fontSize: 40, fontWeight: FontWeight.w600),
+                      'Login',
+                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  SizedBox(height: 80),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: InputDecoration(
-                      fillColor: Colors.white,
-                      filled: true,
-                      labelText: 'Username',
-                      border: OutlineInputBorder(),
+                  SizedBox(height: 30),
+                  Container(
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.5),
+                          spreadRadius: 5,
+                          blurRadius: 7,
+                          offset: Offset(0, 3), // changes position of shadow
+                        ),
+                      ],
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your username';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 20.0),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      fillColor: Colors.white,
-                      filled: true,
-                      border: OutlineInputBorder(),
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _usernameController,
+                          decoration: InputDecoration(
+                            fillColor: Colors.white,
+                            filled: true,
+                            labelText: 'Username',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your username';
+                            }
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 20.0),
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            fillColor: Colors.white,
+                            filled: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                          ),
+                          obscureText: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 20.0),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFF11359A),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: EdgeInsets.symmetric(vertical: 15),
+                            ),
+                            onPressed: loginData,
+                            child: Text(
+                              'Login',
+                              style: TextStyle(color: Colors.white, fontSize: 18),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 20.0),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF11359A),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: _logidemo,
-                    child: Text('Login', style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
@@ -209,6 +154,51 @@ class _LoginPageState extends State<HrLoginScreen> {
     );
   }
 
+  Future<void> loginData() async {
+
+    // API URL
+    String url = 'https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/login';
+
+    // Create the request body
+    Map<String, String> requestBody = {
+      'email': _usernameController.text,
+      'password': _passwordController.text,
+    };
+
+    print(_usernameController.text);
+    print(_passwordController.text);
+
+
+    try {
+      // Make the POST request
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(requestBody),
+      );
+      var jsonResponse = json.decode(response.body);
+      if (response.statusCode == 200) {
+
+        if(jsonResponse['message'] == 'Login successful'){
+          Navigator.push(context, MaterialPageRoute(builder: (context)=> HrDashboard()));
+        }
+        // If the server returns a 200 OK response
+        MessageHandler.showCustomMessage(jsonResponse['message'],backgroundColor: Colors.green);
+      } else {
+        // If the server did not return a 200 OK response
+        MessageHandler.showCustomMessage(jsonResponse['message'],backgroundColor: Colors.red);
+      }
+    } catch (error) {
+      // Handle any errors that occur during the request
+      MessageHandler.somethingWentWrong();
+      print(error);
+    }
+  }
+
+
+
+
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -217,23 +207,3 @@ class _LoginPageState extends State<HrLoginScreen> {
   }
 }
 
-
-
-Future<int> fetchData(String docsID) async {
-  try {
-    DocumentSnapshot documentSnapshot = await FirebaseFirestore.instance
-        .collection("EmployeeDetails")
-        .doc(docsID)
-        .get();
-
-    if (documentSnapshot.exists && documentSnapshot.get("admin") != null) {
-      int isAdmin = documentSnapshot.get("admin");
-      return isAdmin;
-    } else {
-      return 0;
-    }
-  } catch (e) {
-    print('Error fetching data: $e');
-    return 0;
-  }
-}

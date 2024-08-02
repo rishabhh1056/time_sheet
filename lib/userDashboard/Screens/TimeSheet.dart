@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';  // Import for JSON decoding
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
+import 'package:http/http.dart' as http;  // Import for HTTP requests
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/animation.dart';
 import 'package:time_sheet/color/AppColors.dart';
 import '../../massage/MassageHandler.dart';
 
@@ -33,23 +32,21 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
   late Timer _timer;
 
   List<String> _clients = [];
-  List<String> _projects = [];
+  List<String> projectNames = [];
   final List<String> _categories = ['build structure', 'making Ui', 'Build Logics', 'connect to Database', 'Testing', 'Deployment'];
-  final List<String> _Et = ['1hr', '2hrs', '3hrs', '4hrs', '5hrs', '6hrs', '7hrs', '8hrs', 'more than 8hrs'];
+  final List<String> _Et = ['complete', 'in-Process', 'pending', 'hold', 'not started'];
 
   late AnimationController _animationController;
   late Animation<double> _animation;
-  final prefs =  SharedPreferences.getInstance();
+  late SharedPreferences prefs;
 
   @override
   void initState() {
     super.initState();
     _stopwatch = Stopwatch();
     _loadStopwatchState();
-    _fetchProjects();
-    _fetchClients();
-
-
+    _fetchProjectNames();
+    _fetchClientNames();
 
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (_isRunning) {
@@ -77,17 +74,19 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
   }
 
   Future<void> _loadStopwatchState() async {
-    final prefs = await SharedPreferences.getInstance();
+    prefs = await SharedPreferences.getInstance();
     final startTimeString = prefs.getString('startTime');
+    final elapsedMillis = prefs.getInt('elapsedMillis') ?? 0;
+
     if (startTimeString != null) {
       _startTime = DateTime.parse(startTimeString);
       _stopwatch..reset()..start();
       _isRunning = true;
+      _stopwatch.elapsed + Duration(milliseconds: elapsedMillis);
     }
   }
 
   Future<void> _saveStopwatchState() async {
-    final prefs = await SharedPreferences.getInstance();
     if (_isRunning) {
       final elapsedMillis = _stopwatch.elapsed.inMilliseconds;
       prefs.setString('startTime', _startTime?.toIso8601String() ?? '');
@@ -98,55 +97,39 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
     }
   }
 
-  Future<void> _fetchProjects() async {
+  Future<void> _fetchProjectNames() async {
     try {
-      // Query all documents under the 'totalWork' subcollection
-      QuerySnapshot<Map<String, dynamic>> querySnapshot = await FirebaseFirestore.instance
-          .collection('task')
-          .doc(widget.userEmail)
-          .collection('TotalTasks')
-          .get();
-
-      // Process each document in the query snapshot
-      List<String> projects = [];
-      querySnapshot.docs.forEach((doc) {
-        if (doc.exists) {
-          projects.add(doc['projectName'] as String);
-        }
-      });
-
-      setState(() {
-        _projects = projects;
-      });
-
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/tasks/email/${widget.userEmail}')); // Replace with your API endpoint
+      var jsonResponse = json.decode(response.body);
+      print(response.statusCode);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          List<dynamic> _projectData = jsonResponse['data'];
+          projectNames = _projectData.map((project) => project['project_name'] as String).toList();
+        });
+      } else {
+        throw Exception('Failed to load project names');
+      }
     } catch (e) {
-      print('Error fetching projects: $e');
+      print('Error fetching project names: $e');
     }
   }
 
-  Future<void> _fetchClients() async {
+  Future<void> _fetchClientNames() async {
     try {
-      // Query all documents under the 'totalWork' subcollection
-      QuerySnapshot<Map<String, dynamic>> querySnapshot = await FirebaseFirestore.instance
-          .collection('task')
-          .doc(widget.userEmail)
-          .collection('TotalTasks')
-          .get();
-
-      // Process each document in the query snapshot
-      List<String> clients = [];
-      querySnapshot.docs.forEach((doc) {
-        if (doc.exists) {
-          clients.add(doc['clientName'] as String);
-        }
-      });
-
-      setState(() {
-        _clients = clients;
-      });
-
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/project-details/project_name/$_selectedProject')); // Replace with your API endpoint
+      var jsonResponse = json.decode(response.body);
+      if (response.statusCode == 200) {
+        print(response.statusCode);
+        setState(() {
+          List<dynamic> _clientData = jsonResponse['data'];
+          _clients = _clientData.map((client) => client['client_name'] as String).toList();
+        });
+      } else {
+        throw Exception('Failed to load client names');
+      }
     } catch (e) {
-      print('Error fetching projects: $e');
+      print('Error fetching client names: $e');
     }
   }
 
@@ -161,13 +144,24 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
           _isRunning = true;
           _animationController.forward(from: 0);
 
-          await FirebaseFirestore.instance.collection('userTimeSheet').doc(
-              "Date:${DateTime(_startTime!.year, _startTime!.month, _startTime!.day)} ${widget.userEmail}").set({
-            'project name': _selectedProject,
-            'client name': _selectedClient,
-            'category': _selectedCategory,
-            'startTime': _startTime,
-          });
+          final url = 'https://your-api-endpoint/start-time'; // Replace with your API endpoint
+          final response = await http.post(
+            Uri.parse(url),
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: jsonEncode(<String, dynamic>{
+              'email': widget.userEmail,
+              'project name': _selectedProject,
+              'client name': _selectedClient,
+              'category': _selectedCategory,
+              'startTime': _startTime?.toIso8601String(),
+            }),
+          );
+
+          if (response.statusCode != 200) {
+            throw Exception('Failed to post start time');
+          }
         });
 
         _saveStopwatchState();
@@ -192,14 +186,25 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
           _isRunning = false;
           _animationController.stop();
 
-          await FirebaseFirestore.instance.collection('userTimeSheet').doc(
-              "Date:${DateTime(_endTime!.year, _endTime!.month, _endTime!.day)} ${widget.userEmail}").update({
-            'project name': _selectedProject,
-            'client name': _selectedClient,
-            'category': _selectedCategory,
-            'endTime': _endTime,
-            'total working hours': _totalHours
-          });
+          final url = 'https://your-api-endpoint/end-time'; // Replace with your API endpoint
+          final response = await http.post(
+            Uri.parse(url),
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: jsonEncode(<String, dynamic>{
+              'email': widget.userEmail,
+              'project name': _selectedProject,
+              'client name': _selectedClient,
+              'category': _selectedCategory,
+              'endTime': _endTime?.toIso8601String(),
+              'total working hours': _totalHours,
+            }),
+          );
+
+          if (response.statusCode != 200) {
+            throw Exception('Failed to post end time');
+          }
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,10 +241,11 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
               _buildDropdownField(
                 label: 'Project Name',
                 value: _selectedProject,
-                items: _projects,
+                items: projectNames,
                 onChanged: (value) {
                   setState(() {
                     _selectedProject = value;
+                    _fetchClientNames();
                   });
                 },
               ),
@@ -256,7 +262,7 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
               ),
               SizedBox(height: 20),
               _buildDropdownField(
-                label: 'Category',
+                label: 'Task Name',
                 value: _selectedCategory,
                 items: _categories,
                 onChanged: (value) {
@@ -267,7 +273,7 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
               ),
               SizedBox(height: 20),
               _buildDropdownField(
-                label: 'Estimated time',
+                label: 'project status',
                 value: _selectedEt,
                 items: _Et,
                 onChanged: (value) {
@@ -277,72 +283,22 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
                 },
               ),
               SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 10.0),
-                      child: ElevatedButton(
-                        onPressed: _startTimeButtonPressed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                        ),
-                        child: Text(
-                          'Start Time',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 10.0),
-                      child: ElevatedButton(
-                        onPressed: _endTimeButtonPressed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                        ),
-                        child: Text(
-                          'End Time',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              Text(
+                'Elapsed Time: ${_stopwatch.elapsed.inHours}:${_stopwatch.elapsed.inMinutes.remainder(60)}:${_stopwatch.elapsed.inSeconds.remainder(60)}',
+                style: TextStyle(fontSize: 20),
               ),
               SizedBox(height: 20),
-              // Center(
-              //   child: Stack(
-              //     alignment: Alignment.center,
-              //     children: [
-              //       CircularProgressIndicator(
-              //         value: _animation.value,
-              //         strokeWidth: 10.0,
-              //         valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-              //         backgroundColor: Colors.grey[200],
-              //       ),
-              //       Text(
-              //         _formatDuration(_stopwatch.elapsed),
-              //         style: TextStyle(
-              //           fontSize: 20,
-              //           fontWeight: FontWeight.bold,
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ),
-
-
-              SizedBox(height: 20),
-              // Text(
-              //   'Total Work Hours: ${_totalHours.toStringAsFixed(2)} hours',
-              //   style: TextStyle(
-              //     fontSize: 16,
-              //     fontWeight: FontWeight.bold,
-              //   ),
-              // ),
+              _buildButton(
+                label: 'Start Time',
+                onPressed: _startTimeButtonPressed,
+                color: Colors.green,
+              ),
+              SizedBox(height: 10),
+              _buildButton(
+                label: 'End Time',
+                onPressed: _endTimeButtonPressed,
+                color: Colors.red,
+              ),
             ],
           ),
         ),
@@ -354,54 +310,52 @@ class _TimeSheetFormState extends State<TimeSheetForm> with SingleTickerProvider
     required String label,
     required String? value,
     required List<String> items,
-    required void Function(String?)? onChanged,
+    required ValueChanged<String?> onChanged,
   }) {
     return DropdownButtonFormField<String>(
       value: value,
-      hint: Text(label),
-      decoration: InputDecoration(
-        fillColor: Colors.white,
-        filled: true,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-        ),
-      ),
-      items: items.isNotEmpty
-          ? items.map((String item) {
+      onChanged: onChanged,
+      items: items.map((String item) {
         return DropdownMenuItem<String>(
           value: item,
           child: Text(item),
         );
-      }).toList()
-          : [],
-      onChanged: onChanged,
+      }).toList(),
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+      ),
       validator: (value) {
-        if (value == null) {
-          return 'Please select a $label';
+        if (value == null || value.isEmpty) {
+          return 'Please select $label';
         }
         return null;
       },
     );
   }
 
-  Widget buildLottieAnimation({
-    required String animationPath,
-    double? height,
-    double? width,
+  Widget _buildButton({
+    required String label,
+    required VoidCallback onPressed,
+    required Color color,
   }) {
-    return Center(
-      child: Lottie.asset(
-        animationPath,
-        height: height,
-        width: width,
-        fit: BoxFit.contain,
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        padding: EdgeInsets.symmetric(vertical: 15),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 18),
       ),
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes.remainder(60);
-    final seconds = duration.inSeconds.remainder(60);
-    return '${duration.inHours}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 }

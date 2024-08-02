@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:time_sheet/color/AppColors.dart';
+import 'package:http/http.dart' as http;
 
 class AddProjectPage extends StatefulWidget {
   @override
@@ -9,14 +12,82 @@ class AddProjectPage extends StatefulWidget {
 class _AddProjectPageState extends State<AddProjectPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  TextEditingController _projectNameController = TextEditingController();
-  TextEditingController _clientNameController = TextEditingController();
   TextEditingController _descriptionController = TextEditingController();
-  TextEditingController _assignTimeController = TextEditingController();
-  TextEditingController _deadlineController = TextEditingController();
+  TextEditingController _assignManagerController = TextEditingController();
 
   DateTime? _taskAssignTime;
   DateTime? _taskDeadLineTime;
+
+  String? _selectedProject;
+  String? _selectedClient;
+  String? _selectedManager;
+
+  List<String> projectNames = [];
+  List<String> _clients = [];
+  List<String> _managers = [];
+
+  late List<dynamic> _projectData;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProjects();
+    _fetchManagers();
+  }
+
+  Future<void> _fetchProjects() async {
+    try {
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/project-details'));
+      var jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == "success") {
+        setState(() {
+          List<dynamic> _projectData = jsonResponse['data'];
+          projectNames = _projectData.map((project) => project['project_name'] as String).toList();
+        });
+      } else {
+        throw Exception('Failed to load project names');
+      }
+    } catch (e) {
+      print('Error fetching project names: $e');
+    }
+  }
+
+  Future<void> _fetchClients() async {
+    if (_selectedProject == null) return;
+
+    try {
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/project-details/project_name/$_selectedProject'));
+      var jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          _projectData = jsonResponse['data'];
+          _clients = _projectData.map((project) => project['client_name'] as String).toList();
+          _selectedClient = null; // Reset selected client
+        });
+      } else {
+        throw Exception('Failed to load client names');
+      }
+    } catch (e) {
+      print('Error fetching client names: $e');
+    }
+  }
+
+  Future<void> _fetchManagers() async {
+    try {
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/users/status_code/2'));
+      var jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          List<dynamic> _projectData = jsonResponse['data'];
+          _managers = _projectData.map((project) => project['email'] as String).toList();
+        });
+      } else {
+        throw Exception('Failed to load project names');
+      }
+    } catch (e) {
+      print('Error fetching manager names: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,40 +106,73 @@ class _AddProjectPageState extends State<AddProjectPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                _buildTextFormField(
-                  controller: _projectNameController,
-                  labelText: 'Project Name',
+                _buildDropdownField(
+                  value: _selectedProject,
+                  items: projectNames,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedProject = value;
+                      _fetchClients(); // Fetch clients when a project is selected
+                    });
+                  },
+                  labelText: 'Select Project',
                 ),
                 SizedBox(height: 16.0),
-                _buildTextFormField(
-                  controller: _clientNameController,
-                  labelText: 'Client Name',
+                if (_clients.isNotEmpty) // Only show client dropdown if there are clients
+                  _buildDropdownField(
+                    value: _selectedClient,
+                    items: _clients,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedClient = value;
+                      });
+                    },
+                    labelText: 'Select Client',
+                  ),
+                SizedBox(height: 16.0),
+                _buildDropdownField(
+                  value: _selectedManager,
+                  items: _managers,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedManager = value;
+                    });
+                  },
+                  labelText: 'Assign Manager',
                 ),
                 SizedBox(height: 16.0),
                 _buildTextFormField(
                   controller: _descriptionController,
                   labelText: 'Project Description',
+                  maxLength: 256,
+                  maxLines: 4,
                 ),
                 SizedBox(height: 16.0),
-                _buildDateTimePicker(labelText: "Assign Time",
-                    selectedDate: _taskAssignTime,
-                    selectDate: (DateTime date) {
-                      setState(() {
-                        _taskAssignTime = date;
-                      });
-                    }),
+                _buildDateTimePicker(
+                  labelText: "Assign Time",
+                  selectedDate: _taskAssignTime,
+                  selectDate: (DateTime date) {
+                    setState(() {
+                      _taskAssignTime = date;
+                    });
+                  },
+                ),
                 SizedBox(height: 16.0),
-                _buildDateTimePicker(labelText: "DeadLine Time",
-                    selectedDate: _taskDeadLineTime,
-                    selectDate: (DateTime date) {
-                      setState(() {
-                        _taskDeadLineTime = date;
-                      });
-                    }),
+                _buildDateTimePicker(
+                  labelText: "Deadline Time",
+                  selectedDate: _taskDeadLineTime,
+                  selectDate: (DateTime date) {
+                    setState(() {
+                      _taskDeadLineTime = date;
+                    });
+                  },
+                ),
                 SizedBox(height: 20.0),
                 ElevatedButton(
                   onPressed: () {
-                    _submitForm();
+                    if (_formKey.currentState?.validate() ?? false) {
+                      submitData();
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.userPrimaryButtonColor,
@@ -94,10 +198,48 @@ class _AddProjectPageState extends State<AddProjectPage> {
     required TextEditingController controller,
     required String labelText,
     TextInputType? keyboardType,
+    int maxLines = 1,
+    int maxLength = 20,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      maxLines: maxLines,
+      maxLength: maxLength,
+      decoration: InputDecoration(
+        labelText: labelText,
+        fillColor: Colors.white,
+        filled: true,
+        counterText: '',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter $labelText';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildDropdownField({
+    required String? value,
+    required List<String> items,
+    required Function(String?) onChanged,
+    required String labelText,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      items: items.map((item) {
+        return DropdownMenuItem<String>(
+          value: item,
+          child: Text(item),
+        );
+      }).toList(),
+      onChanged: onChanged,
       decoration: InputDecoration(
         labelText: labelText,
         fillColor: Colors.white,
@@ -108,8 +250,8 @@ class _AddProjectPageState extends State<AddProjectPage> {
         contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter $labelText';
+        if (value == null) {
+          return 'Please select $labelText';
         }
         return null;
       },
@@ -152,64 +294,79 @@ class _AddProjectPageState extends State<AddProjectPage> {
               pickedTime.hour,
               pickedTime.minute,
             );
+
             selectDate(combinedDateTime);
           }
         }
       },
-      child: AbsorbPointer(
-        child: TextFormField(
-          decoration: InputDecoration(
-            fillColor: Colors.white,
-            filled: true,
-            labelText: labelText,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.0),
-            ),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: labelText,
+          fillColor: Colors.white,
+          filled: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10.0),
           ),
-          validator: (value) {
-            if (selectedDate == null) {
-              return 'Please select $labelText';
-            }
-            return null;
-          },
-          controller: TextEditingController(
-            text: selectedDate != null ? '$dateText $timeText' : '',
-          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            Text(dateText),
+            SizedBox(width: 8.0),
+            Text(timeText),
+            Icon(Icons.calendar_today, color: Colors.grey),
+          ],
         ),
       ),
     );
   }
 
+  Future<void> submitData() async {
+    String description = _descriptionController.text;
+    String assignManager = _assignManagerController.text;
+    String assignedTime = _taskAssignTime?.toIso8601String() ?? '';
+    String deadline = _taskDeadLineTime?.toIso8601String() ?? '';
 
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // Form is valid, handle the submission
-      String projectName = _projectNameController.text;
-      String clientName = _clientNameController.text;
-      String description = _descriptionController.text;
-      String assignedTime = _assignTimeController.text;
-      String deadline = _deadlineController.text;
+    // API URL
+    String url = 'https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/addproject';
 
-      // Handle project addition logic here
-      // For example, print values to the console
-      print('Project Name: $projectName');
-      print('Client Name: $clientName');
-      print('Description: $description');
-      print('Assigned Time: $assignedTime');
-      print('Deadline: $deadline');
+    // Create the request body
+    Map<String, String> requestBody = {
+      'project_name': _selectedProject ?? '',
+      'client_name': _selectedClient ?? '',
+      'project_des': description,
+      'assign_manager': _selectedManager ?? '',
+      'assign_time': assignedTime,
+      'deadline_time': deadline,
+    };
 
-      // Show success message or navigate to another page
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Project Added Successfully')),
+    try {
+      // Make the POST request
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(requestBody),
       );
 
-      // Clear the form
-      _projectNameController.clear();
-      _clientNameController.clear();
-      _descriptionController.clear();
-      _assignTimeController.clear();
-      _deadlineController.clear();
+      var jsonResponse = json.decode(response.body);
+      if (response.statusCode == 201) {
+
+        // If the server returns a 201 Created response
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('successfully add project'),
+        ));
+      } else {
+        // If the server did not return a 201 Created response
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to add Project'),
+        ));
+      }
+    } catch (error) {
+      // Handle any errors that occur during the request
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('An error occurred'),
+      ));
     }
   }
 }

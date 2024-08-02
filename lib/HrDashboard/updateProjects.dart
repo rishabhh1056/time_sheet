@@ -6,16 +6,15 @@ import 'dart:convert';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:time_sheet/HrDashboard/updateProjectForm.dart';
 import 'package:time_sheet/color/AppColors.dart';
-import '../../massage/MassageHandler.dart';
 
-class UserPanelAssignedTask extends StatefulWidget {
-  final String userEmail;
-  UserPanelAssignedTask({required this.userEmail});
+import '../massage/MassageHandler.dart';
+
+class UpdateProjects extends StatefulWidget {
   @override
-  _UserPanelAssignedTaskState createState() => _UserPanelAssignedTaskState();
+  _UpdateProjectsState createState() => _UpdateProjectsState();
 }
 
-class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
+class _UpdateProjectsState extends State<UpdateProjects> {
   late List<dynamic> _projectsData = [];
   late Map<String, dynamic> ApiData;
 
@@ -27,10 +26,10 @@ class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
 
   Future<void> fetchEmployeeData() async {
     try {
-      var response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/tasks/email/${widget.userEmail}')); // Replace with your actual API endpoint
+      var response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/projects')); // Replace with your actual API endpoint
       var jsonResponse = json.decode(response.body);
       ApiData = jsonResponse;
-      if (jsonResponse['status'] == 1) {
+      if (jsonResponse['status'] == 'success') {
         setState(() {
           _projectsData = jsonResponse['data'];
           MessageHandler.showCustomMessage(jsonResponse['message'], backgroundColor: Colors.green,);
@@ -53,8 +52,8 @@ class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
 
   void _deleteProject(int projectId) {
     setState(()   {
-      deleteData(projectId);
-      _projectsData.removeWhere((data) => data['id'] == projectId);
+     deleteData(projectId);
+     _projectsData.removeWhere((data) => data['id'] == projectId);
     });
 
   }
@@ -81,15 +80,50 @@ class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
                 side: BorderSide(color: Colors.grey)
             ),
             child: ListTile(
-              title: Text(' ${projects['project_name'] ?? 'No project_name'}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),),
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.edit),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => UpdateProjectForm(projectId: projects['id'],),
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete),
+                    onPressed: () {
+                      _deleteProject(projects['id']);
+                    },
+                  ),
+                ],
+              ),
 
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
+                      const Text('project name:     ',     style: TextStyle(fontWeight: FontWeight.w600),),
+                      Text(' ${projects['project_name'] ?? 'No project_name'}'),
+                    ],
+                  ),
+                  SizedBox(height: 4,),
+                  Row(
+                    children: [
                       const Text('client_name:      ',      style: TextStyle(fontWeight: FontWeight.w600),),
                       Text(' ${projects['client_name'] ?? 'No client_name'}'),
+                    ],
+                  ),
+                  SizedBox(height: 4,),
+                  Row(
+                    children: [
+                      Text('assign_manager: ',style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text('${projects['assign_manager'] ?? 'No assign_manager'}'),
                     ],
                   ),
                   SizedBox(height: 4,),
@@ -102,8 +136,8 @@ class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
                   SizedBox(height: 4,),
                   Row(
                     children: [
-                      Text('deadline: ',style: TextStyle(fontWeight: FontWeight.w600)),
-                      Text('${projects['deadline'] ?? 'No deadline_time'}', style: TextStyle(color: Colors.red),),
+                      Text('deadline_time: ',style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text('${projects['deadline_time'] ?? 'No deadline_time'}', style: TextStyle(color: Colors.red),),
                     ],
                   ),
                   SizedBox(height: 4,),
@@ -113,8 +147,8 @@ class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
                       Flexible(
                         child: Text('${projects['project_des'] ?? 'No project_des'}',
                           overflow: TextOverflow.visible,),
-                        fit: FlexFit.loose,
-                        flex: 2,),
+                         fit: FlexFit.loose,
+                         flex: 2,),
                     ],
                   ),
                 ],

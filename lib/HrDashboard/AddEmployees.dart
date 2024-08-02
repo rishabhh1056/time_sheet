@@ -1,20 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:time_sheet/color/AppColors.dart';
-
-import '../firebaseAuth/FirebaseAuth.dart';
-import '../massage/MassageHandler.dart';
+import 'package:http/http.dart' as http;
 
 class EmployeeForm extends StatefulWidget {
-  final String? employeeId;
 
-  EmployeeForm({this.employeeId});
-
-  @override
+@override
   _EmployeeFormState createState() => _EmployeeFormState();
 }
 
@@ -23,69 +19,79 @@ class _EmployeeFormState extends State<EmployeeForm> {
 
   TextEditingController _userNameController = TextEditingController();
   TextEditingController _phoneNumberController = TextEditingController();
+  TextEditingController _perHoursController = TextEditingController();
   TextEditingController _addressController = TextEditingController();
   TextEditingController _profileController = TextEditingController();
   TextEditingController _emailController = TextEditingController();
   TextEditingController _passwordController = TextEditingController();
+  TextEditingController _passwordConfirmationController = TextEditingController();
 
   String? _userName;
   String? _imageUrl;
-
   File? _image;
   final ImagePicker _picker = ImagePicker();
 
-  //firebase
-  final FirebaseAuthService _auth = FirebaseAuthService();
+  // Static roles list
+  String? _selectedRole; // Variable to store selected role
+  List<Map<String, dynamic>> roles = [
+    {'Employee': 1},
+    {'Manager': 2},
+    {'HR': 3},
+    // Add more roles as needed
+  ];
+
+  bool _isLoading = false;
+  int? _selectedRoleCode;
 
   @override
   void initState() {
     super.initState();
-    if (widget.employeeId != null) {
-      _loadEmployeeDetails();
-    }
-  }
-
-  Future<void> _loadEmployeeDetails() async {
-    var doc = await FirebaseFirestore.instance.collection('EmployeeDetails').doc(widget.employeeId).get();
-    var data = doc.data() as Map<String, dynamic>;
-
-    setState(() {
-      _userNameController.text = data['user Name'];
-      _phoneNumberController.text = data['phone'];
-      _addressController.text = data['address'];
-      _profileController.text = data['user Profile'];
-      _emailController.text = data['email'];
-      _imageUrl = data['imageUrl'];
-    });
   }
 
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
-      // await _uploadImageToFirebase();
+    try {
+      final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        setState(() {
+          _image = File(pickedFile.path);
+        });
+      } else {
+        print("No image selected");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No image selected')),
+        );
+      }
+    } catch (e) {
+      print("Error picking image: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to pick image: $e')),
+      );
     }
   }
 
-  // Future<void> _uploadImageToFirebase() async {
-  //   String fileName = _emailController.text;
-  //   Reference firebaseStorageRef = FirebaseStorage.instance.ref().child('uploads/$fileName');
-  //   UploadTask uploadTask = firebaseStorageRef.putFile(_image!);
-  //   TaskSnapshot taskSnapshot = await uploadTask;
-  //   String downloadUrl = await taskSnapshot.ref.getDownloadURL();
-  //   setState(() {
-  //     _imageUrl = downloadUrl;
-  //   });
-  // }
+  void _onRoleChanged(String? newValue) {
+    setState(() {
+      _selectedRole = newValue;
+
+      if (newValue != null) {
+        var selectedRole = roles.firstWhere(
+                (role) => role.containsKey(newValue),
+            orElse: () => {}
+        );
+
+        _selectedRoleCode = selectedRole.values.isNotEmpty
+            ? selectedRole.values.first
+            : null;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.userPrimaryLightColor,
       appBar: AppBar(
-        title: Text(widget.employeeId == null ? 'Add Employee' : 'Edit Employee', style: TextStyle(color: Colors.white)),
+        title: Text('Add Employee', style: TextStyle(color: Colors.white)),
         iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppColors.userPrimaryColor,
       ),
@@ -129,13 +135,9 @@ class _EmployeeFormState extends State<EmployeeForm> {
                 ),
                 SizedBox(height: 16.0),
                 _buildTextFormField(
-                  controller: _phoneNumberController,
-                  labelText: 'Phone Number',
-                ),
-                SizedBox(height: 16.0),
-                _buildTextFormField(
-                  controller: _addressController,
-                  labelText: 'Address',
+                  controller: _emailController,
+                  labelText: 'Email',
+                  keyboardType: TextInputType.emailAddress,
                 ),
                 SizedBox(height: 16.0),
                 _buildTextFormField(
@@ -144,30 +146,42 @@ class _EmployeeFormState extends State<EmployeeForm> {
                 ),
                 SizedBox(height: 16.0),
                 _buildTextFormField(
-                  controller: _emailController,
-                  labelText: 'Email',
-                  keyboardType: TextInputType.emailAddress,
+                  controller: _addressController,
+                  labelText: 'Address',
                 ),
                 SizedBox(height: 16.0),
-                if (widget.employeeId == null) ...[
+                _buildTextFormField(
+                    controller: _phoneNumberController,
+                    labelText: 'Phone Number',
+                    keyboardType: TextInputType.numberWithOptions(),
+                    length: 10
+                ),
+                SizedBox(height: 16.0),
+                _buildTextFormField(
+                    controller: _perHoursController,
+                    labelText: 'Per hour cost',
+                    keyboardType: TextInputType.numberWithOptions(),
+                    length: 10
+                ),
+                SizedBox(height: 16.0),
+                _buildRoleDropdown(),
+                SizedBox(height: 16.0),
+
                   _buildTextFormField(
                     controller: _passwordController,
                     labelText: 'Password',
                     obscureText: true,
                   ),
                   SizedBox(height: 20.0),
-                ],
                 ElevatedButton(
-                  onPressed: () {
-                    _submitForm();
-                  },
+                  onPressed: _submitForm,
                   style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.userPrimaryButtonColor,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
-                      minimumSize: Size(MediaQuery.sizeOf(context).width * 9.40, 40)),
+                      minimumSize: Size(MediaQuery.sizeOf(context).width * 0.9, 40)),
                   child: Text(
-                    widget.employeeId == null ? 'Add Employee' : 'Save',
+                     'Add Employee',
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
@@ -184,14 +198,19 @@ class _EmployeeFormState extends State<EmployeeForm> {
     required String labelText,
     bool obscureText = false,
     TextInputType? keyboardType,
+    int length = 256,
+    int maxLines = 1
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      maxLength: length,
+      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: labelText,
         fillColor: Colors.white,
+        counterText: '',
         filled: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10.0),
@@ -207,70 +226,91 @@ class _EmployeeFormState extends State<EmployeeForm> {
     );
   }
 
-  void _submitForm() {
+  Widget _buildRoleDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _selectedRole,
+      decoration: InputDecoration(
+        labelText: 'Role',
+        fillColor: Colors.white,
+        filled: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
+      ),
+      items: roles.map((Map<String, dynamic> role) {
+        String roleName = role.keys.first;
+        return DropdownMenuItem<String>(
+          value: roleName,
+          child: Text(roleName),
+        );
+      }).toList(),
+      onChanged: _onRoleChanged,
+      validator: (value) {
+        if (value == null) {
+          return 'Please select a role';
+        }
+        return null;
+      },
+    );
+  }
+
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      // All fields are valid, perform data submission
-      if (widget.employeeId == null) {
-        _addEmployee();
-      } else {
-        _updateEmployee();
+      _formKey.currentState!.save();
+
+      try {
+        var request = http.MultipartRequest(
+          'POST',
+          Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/user/store'), // Replace with your API URL
+        );
+
+        request.headers['Content-Type'] = 'multipart/form-data';
+
+        // Add text fields
+        request.fields['name'] = _userNameController.text;
+        request.fields['email'] = _emailController.text;
+        request.fields['password'] = _passwordController.text;
+        // request.fields['password_confirmation'] = _passwordConfirmationController.text;
+        request.fields['profile'] = _profileController.text;
+        request.fields['contact'] = _phoneNumberController.text;
+        request.fields['per_hour_cost'] = _perHoursController.text;
+        request.fields['address'] = _addressController.text;
+        request.fields['status_code'] = _selectedRoleCode.toString();
+
+        if (_image != null) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'imageUrl',
+            _image!.path,
+            contentType: MediaType('image', 'jpeg'),
+          ));
+        }
+
+        // Log the request fields and headers
+        print('Request Fields: ${request.fields}');
+        print('Request Headers: ${request.headers}');
+
+        var response = await request.send();
+        print('Response Status Code: ${response.statusCode}');
+        var responseBody = await response.stream.bytesToString();
+        print('Response Body: $responseBody');
+
+        if (response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Employee added successfully!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to add employee: $responseBody')),
+          );
+        }
+      } catch (e) {
+        print('Error: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e')),
+        );
       }
-    } else {
-      // Validation failed, show error toast
-      MessageHandler.fillAllDetails();
     }
   }
 
-  Future<void> _addEmployee() async {
-    String userName = _userNameController.text;
-    String profile = _profileController.text;
-    String userEmail = _emailController.text;
-    String password = _passwordController.text;
-
-    User? user = await _auth.SignUpWithEmailAndPassword(userEmail, password);
-
-    var uid = user?.uid;
-
-    if (user != null) {
-      FirebaseFirestore.instance.collection('EmployeeDetails').doc(userEmail).set({
-        "user Name": userName,
-        "user Profile": profile,
-        "email": userEmail,
-        "password": password,
-        "uid": uid,
-        "admin": 0,
-        "imageUrl": _imageUrl,
-      }).then((value) {
-        MessageHandler.EmployeAdded();
-
-        _userNameController.clear();
-        _profileController.clear();
-        _emailController.clear();
-        _passwordController.clear();
-      }).catchError((error) {
-        MessageHandler.EmployeAddedFailed(error);
-      });
-    } else {
-      MessageHandler.EmployeAddedFailed("");
-    }
-  }
-
-  Future<void> _updateEmployee() async {
-    String userName = _userNameController.text;
-    String profile = _profileController.text;
-    String userEmail = _emailController.text;
-
-    await FirebaseFirestore.instance.collection('EmployeeDetails').doc(widget.employeeId).update({
-      "user Name": userName,
-      "user Profile": profile,
-      "email": userEmail,
-      "imageUrl": _imageUrl,
-    }).then((value) {
-      MessageHandler.showCustomMessage("employee updated", backgroundColor: Colors.green);
-
-      Navigator.pop(context);
-    }).catchError((error) {
-      MessageHandler.showCustomMessage("employee updated failed", backgroundColor: Colors.red);
-    });
-  }
 }

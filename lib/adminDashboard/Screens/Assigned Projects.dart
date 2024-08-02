@@ -8,14 +8,14 @@ import 'package:time_sheet/HrDashboard/updateProjectForm.dart';
 import 'package:time_sheet/color/AppColors.dart';
 import '../../massage/MassageHandler.dart';
 
-class UserPanelAssignedTask extends StatefulWidget {
+class AssignedProjects extends StatefulWidget {
   final String userEmail;
-  UserPanelAssignedTask({required this.userEmail});
+  AssignedProjects({required this.userEmail});
   @override
-  _UserPanelAssignedTaskState createState() => _UserPanelAssignedTaskState();
+  _AssignedProjectsState createState() => _AssignedProjectsState();
 }
 
-class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
+class _AssignedProjectsState extends State<AssignedProjects> {
   late List<dynamic> _projectsData = [];
   late Map<String, dynamic> ApiData;
 
@@ -27,7 +27,7 @@ class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
 
   Future<void> fetchEmployeeData() async {
     try {
-      var response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/tasks/email/${widget.userEmail}')); // Replace with your actual API endpoint
+      var response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/projects/email/${widget.userEmail}')); // Replace with your actual API endpoint
       var jsonResponse = json.decode(response.body);
       ApiData = jsonResponse;
       if (jsonResponse['status'] == 1) {
@@ -102,8 +102,8 @@ class _UserPanelAssignedTaskState extends State<UserPanelAssignedTask> {
                   SizedBox(height: 4,),
                   Row(
                     children: [
-                      Text('deadline: ',style: TextStyle(fontWeight: FontWeight.w600)),
-                      Text('${projects['deadline'] ?? 'No deadline_time'}', style: TextStyle(color: Colors.red),),
+                      Text('deadline_time: ',style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text('${projects['deadline_time'] ?? 'No deadline_time'}', style: TextStyle(color: Colors.red),),
                     ],
                   ),
                   SizedBox(height: 4,),

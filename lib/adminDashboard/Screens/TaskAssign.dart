@@ -1,40 +1,93 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:intl/intl.dart';
-import 'package:time_sheet/color/AppColors.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert'; // For json encoding/decoding
 
+import '../../color/AppColors.dart';
 import '../../massage/MassageHandler.dart';
 
-
-
 class TaskAssignmentForm extends StatefulWidget {
+  final String userEmail;
+  TaskAssignmentForm({required this.userEmail});
   @override
   _TaskAssignmentFormState createState() => _TaskAssignmentFormState();
 }
 
 class _TaskAssignmentFormState extends State<TaskAssignmentForm> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  TextEditingController _projectNameController = TextEditingController();
-  TextEditingController _ClientNameController = TextEditingController();
   DateTime? _taskAssignTime;
   DateTime? _endTime;
   String? _selectedUserId;
+  String? _selectedProjectName;
+  String? _selectedClientName;
 
   MessageHandler massage = MessageHandler();
 
   var dateFormat = DateFormat.yMMMMd(); // Date format
   var timeFormat = DateFormat.Hm(); // Time format
+  final _desController = TextEditingController();
 
-  CollectionReference task = FirebaseFirestore.instance.collection("task");
-  CollectionReference TotalAssignedTask = FirebaseFirestore.instance.collection("tasks");
-  CollectionReference users = FirebaseFirestore.instance.collection("EmployeeDetails");
+  List<String> userIds = []; // List of user IDs for dropdown
+  List<String> projectNames = []; // List of project names for dropdown
+  List<String> clientNames = []; // List of client names for dropdown
 
   @override
   void initState() {
     super.initState();
-    // Fetch user IDs for dropdown when the widget is initialized
+    _fetchUserIds();
+    _fetchProjectNames();
+  }
+
+  Future<void> _fetchUserIds() async {
+    try {
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/users/status_code/1'));
+      var jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          List<dynamic> _employeeData = jsonResponse['data'];
+          userIds = _employeeData.map((employee) => employee['email'] as String).toList();
+        });
+      } else {
+        throw Exception('Failed to load user IDs');
+      }
+    } catch (e) {
+      print('Error fetching user IDs: $e');
+    }
+  }
+
+  Future<void> _fetchProjectNames() async {
+    try {
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/projects/email/${widget.userEmail}')); // Replace with your API endpoint
+      var jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          List<dynamic> _projectData = jsonResponse['data'];
+          projectNames = _projectData.map((project) => project['project_name'] as String).toList();
+        });
+      } else {
+        throw Exception('Failed to load project names');
+      }
+    } catch (e) {
+      print('Error fetching project names: $e');
+    }
+  }
+
+  Future<void> _fetchClientNames() async {
+    try {
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/project-details/project_name/$_selectedProjectName')); // Replace with your API endpoint
+      var jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          List<dynamic> _clientData = jsonResponse['data'];
+          clientNames = _clientData.map((client) => client['client_name'] as String).toList();
+        });
+      } else {
+        throw Exception('Failed to load client names');
+      }
+    } catch (e) {
+      print('Error fetching client names: $e');
+    }
   }
 
   @override
@@ -42,7 +95,7 @@ class _TaskAssignmentFormState extends State<TaskAssignmentForm> {
     return Scaffold(
       backgroundColor: AppColors.userPrimaryLightColor,
       appBar: AppBar(
-        title: Text('Task Assignment',style: TextStyle(color: Colors.white)),
+        title: Text('Task Assignment', style: TextStyle(color: Colors.white)),
         iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppColors.userPrimaryColor,
       ),
@@ -53,9 +106,9 @@ class _TaskAssignmentFormState extends State<TaskAssignmentForm> {
             margin: EdgeInsets.symmetric(vertical: 70),
             width: MediaQuery.of(context).size.width * 0.8, // 80% of screen width
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10.0),
-              border: Border.all(color: Colors.grey),
-              color: Colors.white
+                borderRadius: BorderRadius.circular(10.0),
+                border: Border.all(color: Colors.grey),
+                color: Colors.white
             ),
             child: Form(
               key: _formKey,
@@ -65,57 +118,57 @@ class _TaskAssignmentFormState extends State<TaskAssignmentForm> {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   // Dropdown for User IDs
-                  StreamBuilder<QuerySnapshot>(
-                    stream: users.snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError) {
-                        return Center(child: Text('Error: ${snapshot.error}'));
-                      }
-        
-                      List<DropdownMenuItem<String>> userDropdownItems = snapshot.data!.docs.map((doc) {
-                        String userId = doc.id; // Assuming the document ID is the user ID
-                        return DropdownMenuItem<String>(
-                          value: userId,
-                          child: Text(userId),
-                        );
-                      }).toList();
-        
-                      return DropdownButtonFormField<String>(
-                        value: _selectedUserId,
-                        items: userDropdownItems,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedUserId = value;
-                          });
-                        },
-                        decoration: InputDecoration(
-                          labelText: 'User ID',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
-                        ),
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Please select a user ID';
-                          }
-                          return null;
-                        },
-                      );
+                  _buildDropdownField(
+                    value: _selectedUserId,
+                    items: userIds,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedUserId = value;
+                      });
                     },
+                    labelText: 'Select Employee ID',
                   ),
                   SizedBox(height: 16.0),
-                  _buildTextFormField(
-                    controller: _projectNameController,
-                    labelText: 'Project Name',
+                  _buildDropdownField(
+                    value: _selectedProjectName,
+                    items: projectNames,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedProjectName = value;
+                        _fetchClientNames(); // Fetch clients when a project is selected
+                      });
+                    },
+                    labelText: 'Select Project',
                   ),
                   SizedBox(height: 16.0),
-                  _buildTextFormField(
-                    controller: _ClientNameController,
-                    labelText: 'Client Name',
+                  _buildDropdownField(
+                    value: _selectedClientName,
+                    items: clientNames,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedClientName = value;
+                      });
+                    },
+                    labelText: 'Select clients',
+                  ),
+                  SizedBox(height: 16.0),
+                  TextFormField(
+                    controller: _desController,
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter Description';
+                      }
+                      return null;
+                    },
                   ),
                   SizedBox(height: 16.0),
                   _buildDateTimePicker(
@@ -129,7 +182,7 @@ class _TaskAssignmentFormState extends State<TaskAssignmentForm> {
                   ),
                   SizedBox(height: 16.0),
                   _buildDateTimePicker(
-                    labelText: 'End Time',
+                    labelText: 'Deadline',
                     selectedDate: _endTime,
                     selectDate: (DateTime date) {
                       setState(() {
@@ -142,7 +195,11 @@ class _TaskAssignmentFormState extends State<TaskAssignmentForm> {
                     onPressed: () {
                       _submitForm();
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.userPrimaryButtonColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),minimumSize: Size(MediaQuery.sizeOf(context).width *9.40, 40)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.userPrimaryButtonColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      minimumSize: Size(MediaQuery.sizeOf(context).width * 0.9, 40),
+                    ),
                     child: Text('Assign Task', style: TextStyle(color: Colors.white)),
                   ),
                 ],
@@ -154,27 +211,7 @@ class _TaskAssignmentFormState extends State<TaskAssignmentForm> {
     );
   }
 
-  Widget _buildTextFormField({
-    required TextEditingController controller,
-    required String labelText,
-  }) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: labelText,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10.0),
-        ),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter $labelText';
-        }
-        return null;
-      },
-    );
-  }
+
 
   Widget _buildDateTimePicker({
     required String labelText,
@@ -240,63 +277,74 @@ class _TaskAssignmentFormState extends State<TaskAssignmentForm> {
     );
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState!.validate()) {
+      String emailId = _selectedUserId.toString();
 
-      String emaiId = _selectedUserId.toString();
-      print("_________________ $emaiId================================");
+      final response = await http.post(
+        Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/assigntasks'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, dynamic>{
+          'userId': emailId,
+          'project_name': _selectedProjectName,
+          'client_name': _selectedClientName,
+          'assign_time': _taskAssignTime?.toIso8601String(),
+          'deadline': _endTime?.toIso8601String(),
+          'project_des': _desController.text
+        }),
+      );
 
-      // Reference to the 'users' collection
-      DocumentReference userDocRef = task.doc(emaiId);
-
-      // Add task details to the 'tasks' subcollection within the user's document
-      userDocRef.collection('TotalTasks').add({
-        'user Id': _selectedUserId,
-        'projectName': _projectNameController.text,
-        'clientName': _ClientNameController.text,
-        'taskAssignTime': _taskAssignTime,
-        'endTime': _endTime,
-      }).then((value) {
-        // Show a toast message and clear form on successful upload
-
+      if (response.statusCode == 201) {
         MessageHandler.taskAssigned();
 
-        _projectNameController.clear();
-        _ClientNameController.clear();
         setState(() {
+          _selectedUserId = null;
+          _selectedProjectName = null;
+          _selectedClientName = null;
           _taskAssignTime = null;
           _endTime = null;
-          _selectedUserId = null; // Clear the selected user ID
+          _desController.clear();
         });
-      }).catchError((error) {
-        // Handle errors here
+      } else {
         MessageHandler.taskAssignedFailed();
-      });
-
-
-      TotalAssignedTask.add({
-        "Employee Email": _selectedUserId,
-        'projectName': _projectNameController.text,
-        'clientName': _ClientNameController.text,
-        'taskAssignTime': _taskAssignTime,
-        'endTime': _endTime,
-      }).then((value) {
-        // Show a toast message and clear form on successful upload
-
-        _projectNameController.clear();
-        _ClientNameController.clear();
-        setState(() {
-          _taskAssignTime = null;
-          _endTime = null;
-          _selectedUserId = null; // Clear the selected user ID
-        });
-      }).catchError((error) {
-        // Handle errors here
-
-      });
+      }
     } else {
-      // If validation fails, show an error message
       MessageHandler.fillAllDetails();
     }
   }
 }
+
+Widget _buildDropdownField({
+  required String? value,
+  required List<String> items,
+  required Function(String?) onChanged,
+  required String labelText,
+}) {
+  return DropdownButtonFormField<String>(
+    value: value,
+    items: items.map((item) {
+      return DropdownMenuItem<String>(
+        value: item,
+        child: Text(item),
+      );
+    }).toList(),
+    onChanged: onChanged,
+    decoration: InputDecoration(
+      labelText: labelText,
+      fillColor: Colors.white,
+      filled: true,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      contentPadding: EdgeInsets.symmetric(horizontal: 12.0),
+    ),
+    validator: (value) {
+      if (value == null) {
+        return 'Please select $labelText';
+      }
+      return null;
+    },
+  );
+  }

@@ -1,42 +1,33 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:marquee_list/marquee_list.dart';
-import 'package:text_marquee/text_marquee.dart';
 import '../color/AppColors.dart';
-import '../HrDashboard/AddEmployees.dart';
+import 'Screens/Assigned Projects.dart';
 import 'Screens/AssignedTask.dart';
 import 'Screens/TaskAssign.dart';
 import 'Screens/TaskStatusListPage.dart';
 
+
+
+
 class AdminDashboard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-        backgroundColor: AppColors.AdminThemeBackColor,
-        appBar: AppBar(
-          title: Text('Admin Dashboard', style: TextStyle(color: Colors.white),),
-          backgroundColor: AppColors.userPrimaryColor,
-          iconTheme: IconThemeData(color: Colors.white),
-          actions: [
-            IconButton(onPressed: (){}, icon: Icon(Icons.notifications)),
-            IconButton(onPressed: (){}, icon: Icon(Icons.logout)),
-          ],
-        ),
-        body: Dashboard()
-    );
-  }
-}
-
-
-class Dashboard extends StatelessWidget {
+  final String userEmail;
+  AdminDashboard({required this.userEmail});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.userPrimaryLightColor,
+      appBar: AppBar(
+        title: Text('Admin Dashboard', style: TextStyle(color: Colors.white),),
+        backgroundColor: AppColors.userPrimaryColor,
+        iconTheme: IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(onPressed: (){}, icon: Icon(Icons.notifications)),
+          IconButton(onPressed: (){}, icon: Icon(Icons.logout)),
+        ],
+      ),
       body: Column(
         children: [
-          _buildUpdateBoard(),
           Expanded(
             child: GridView.count(
               crossAxisCount: 2,
@@ -45,11 +36,11 @@ class Dashboard extends StatelessWidget {
               padding: EdgeInsets.only(left: 10, right: 10, top: 2, bottom: 0),
               children: [
                 _buildCard(
-                    AssetImage('assets/images/add_employee.png'),
-                    'Add Employees',
+                    AssetImage('assets/images/project-man.png'),
+                    'Assigned Projects',
                     Colors.white12,
                         (){
-                      // Navigator.push(context, MaterialPageRoute(builder: (context)=> EmployeeForm()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> AssignedProjects(userEmail: userEmail,)));
                     }
                 ),
                 _buildCard(
@@ -57,7 +48,7 @@ class Dashboard extends StatelessWidget {
                     'Task Assign',
                     Colors.white12,
                         (){
-                      Navigator.push(context, MaterialPageRoute(builder: (context)=> TaskAssignmentForm()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> TaskAssignmentForm(userEmail: userEmail,)));
                     }
                 ),
                 _buildCard(
@@ -258,26 +249,4 @@ class Dashboard extends StatelessWidget {
       ],
     );
   }
-}
-
-Widget _buildUpdateBoard() {
-  return Container(
-    width: double.infinity,
-    height: 30,
-    color: Colors.blueAccent,
-    child: TextMarquee(
-      'Daily Hr updates Herer *Updated* *Updated* *Updated* *Updated* *Updated* *Updated* *Updated* *Updated* *Updated* *Updated*',
-      spaceSize: 72,
-      style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-          fontStyle: FontStyle.italic,
-      ),
-      duration: Duration(seconds: 12),
-      delay: Duration(seconds: 1),
-      rtl: true,
-      startPaddingSize: 50,
-    )
-  );
 }

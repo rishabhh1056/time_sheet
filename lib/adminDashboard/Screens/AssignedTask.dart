@@ -1,74 +1,83 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
+import 'package:http/http.dart' as http;
 import '../../color/AppColors.dart';
 
 class AssignedTask extends StatelessWidget {
+  Future<List<Task>> fetchTasks() async {
+    final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/tasks'));
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == 'success') {
+        List<dynamic> tasks = jsonResponse['data'];
+        return tasks.map((task) => Task.fromJson(task)).toList();
+      } else {
+        throw Exception('Failed to load tasks: ${jsonResponse['message']}');
+      }
+    } else {
+      throw Exception('Failed to load tasks');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.userPrimaryLightColor,
       appBar: AppBar(
-        title: Text('All Tasks Assigned', style: TextStyle(color: Colors.white),),
+        title: Text('All Tasks Assigned', style: TextStyle(color: Colors.white)),
         backgroundColor: AppColors.userPrimaryColor,
         iconTheme: IconThemeData(color: Colors.white),
       ),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance
-            .collection('tasks')
-            .orderBy('endTime', descending: true)  // Order by 'taskAssignTime' in descending order
-            .snapshots(),
-        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+      body: FutureBuilder<List<Task>>(
+        future: fetchTasks(),
+        builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
-          // If there's no data, show a message
-          if (snapshot.data!.docs.isEmpty) {
+          if (snapshot.data == null || snapshot.data!.isEmpty) {
             return Center(child: Text('No tasks found.'));
           }
-          // Otherwise, build the ListView
-          return ListView.builder(
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              // Get data from Firestore document
-              var document = snapshot.data!.docs[index];
-              var data = document.data() as Map<String, dynamic>;
 
-              // Check and format 'task' field
-              var task = data["task"] ?? "No task name"; // Provide a default value if 'task' is null
+          return ListView.builder(
+            itemCount: snapshot.data!.length,
+            itemBuilder: (context, index) {
+              final task = snapshot.data![index];
 
               // Format date and time using intl package
               var dateFormat = DateFormat.yMMMMd(); // Date format
               var timeFormat = DateFormat.Hm(); // Time format
 
-              // Parse and format taskAssignTime
-              Timestamp? assignTimestamp = data['taskAssignTime'];
-              String formattedAssignTime = assignTimestamp != null ? '${dateFormat.format(assignTimestamp.toDate())} at ${timeFormat.format(assignTimestamp.toDate())}' : "No assigned time"; // Handle null for 'taskAssignTime'
+              // Format assignTime
+              String formattedAssignTime = task.assignTime != null
+                  ? '${dateFormat.format(task.assignTime!)} at ${timeFormat.format(task.assignTime!)}'
+                  : "No assigned time";
 
-              // Parse and format endTime
-              Timestamp? endTimestamp = data['endTime'];
-              String formattedEndTime = endTimestamp != null
-                  ? '${dateFormat.format(endTimestamp.toDate())} at ${timeFormat.format(endTimestamp.toDate())}'
-                  : "No deadline"; // Handle null for 'endTime'
+              // Format deadline
+              String formattedDeadline = task.deadline != null
+                  ? '${dateFormat.format(task.deadline!)} at ${timeFormat.format(task.deadline!)}'
+                  : "No deadline";
 
               return Card(
-                shape: RoundedRectangleBorder(side: BorderSide(color: Colors.blueGrey, width: 1,)),
+                shape: RoundedRectangleBorder(side: BorderSide(color: Colors.blueGrey, width: 1)),
                 margin: EdgeInsets.all(10),
                 child: ListTile(
                   title: Text("Task No: ${index + 1}"),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('User Email: ${data['Employee Email'] ?? "No email"}', style: TextStyle(color: Colors.black, fontSize: 15),),
-                      Text('Description: ${data['projectName'] ?? 'No project name'}', style: TextStyle(color: Colors.black, fontSize: 15)), // Handle null for 'projectName'
-                      Text('Client Name: ${data['clientName'] ?? 'No client name'}', style: TextStyle(color: Colors.black, fontSize: 15)), // Handle null for 'projectName'
+                      Text('User Email: ${task.userId ?? "No email"}', style: TextStyle(color: Colors.black, fontSize: 15)),
+                      Text('Description: ${task.projectName ?? 'No project name'}', style: TextStyle(color: Colors.black, fontSize: 15)),
+                      Text('Client Name: ${task.clientName ?? 'No client name'}', style: TextStyle(color: Colors.black, fontSize: 15)),
                       Text('Assigned Time: $formattedAssignTime', style: TextStyle(color: Colors.black, fontSize: 15)),
-                      Text('Deadline: $formattedEndTime', style: TextStyle(color: Colors.black, fontSize: 15)),
+                      Text('Deadline: $formattedDeadline', style: TextStyle(color: Colors.black, fontSize: 15)),
                     ],
                   ),
                 ),
@@ -81,3 +90,40 @@ class AssignedTask extends StatelessWidget {
   }
 }
 
+
+class Task {
+  final String? id;
+  final String? userId;
+  final String? projectName;
+  final String? clientName;
+  final DateTime? assignTime;
+  final DateTime? deadline;
+  final String? projectDescription;
+
+  Task({
+    this.id,
+    this.userId,
+    this.projectName,
+    this.clientName,
+    this.assignTime,
+    this.deadline,
+    this.projectDescription,
+  });
+
+  // Factory constructor to create a Task object from JSON
+  factory Task.fromJson(Map<String, dynamic> json) {
+    return Task(
+      id: json['id'].toString(),
+      userId: json['userId'],
+      projectName: json['project_name'],
+      clientName: json['client_name'],
+      assignTime: json['assign_time'] != null
+          ? DateTime.parse(json['assign_time'])
+          : null,
+      deadline: json['deadline'] != null
+          ? DateTime.parse(json['deadline'])
+          : null,
+      projectDescription: json['project_des'],
+    );
+  }
+}

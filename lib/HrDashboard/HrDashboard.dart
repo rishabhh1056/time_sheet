@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:time_sheet/HrDashboard/updateProjects.dart';
 import '../color/AppColors.dart';
 import 'AddEmployees.dart';
+import 'AddNewProject.dart';
 import 'AddProject.dart';
 import 'LeaveRequest.dart';
 import 'UpdateEmployee.dart';
@@ -93,7 +95,7 @@ class Dashboard extends StatelessWidget {
                     '   Update\nEmployees',
                     Colors.white12,
                         (){
-                      Navigator.push(context, MaterialPageRoute(builder: (context)=> UpdateEmployeePage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> EmployeePage()));
                     }
                 ),
                 _buildCard(
@@ -110,6 +112,30 @@ class Dashboard extends StatelessWidget {
                     Colors.white12,
                         (){
                       Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestsPage()));
+                    }
+                ),
+                _buildCard(
+                    AssetImage('assets/images/updateProject.png'),
+                    'Updates Projects',
+                    Colors.white12,
+                        (){
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> UpdateProjects()));
+                    }
+                ),
+                _buildCard(
+                    AssetImage('assets/images/updates.png'),
+                    'Add New Project',
+                    Colors.white12,
+                        (){
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> AddNewProject()));
+                    }
+                ),
+                _buildCard(
+                    AssetImage('assets/images/logout.png'),
+                    'Logout',
+                    Colors.white12,
+                        (){
+                      // Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestsPage()));
                     }
                 ),
               ],

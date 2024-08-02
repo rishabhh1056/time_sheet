@@ -1,23 +1,19 @@
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:time_sheet/HrDashboard/HrDashboard.dart';
 import 'package:time_sheet/adminDashboard/adminDashboard.dart';
-
 import '../firebaseAuth/FirebaseAuth.dart';
-import '../massage/MassageHandler.dart';
-import '../userDashboard/userDashboard.dart';
+import 'package:http/http.dart' as http;
 
+import '../massage/MassageHandler.dart';
 
 class ManagerLoginScreen extends StatefulWidget {
   @override
-  _LoginPageState createState() => _LoginPageState();
+  _ManagerLoginScreenState createState() => _ManagerLoginScreenState();
 }
 
-class _LoginPageState extends State<ManagerLoginScreen> {
+class _ManagerLoginScreenState extends State<ManagerLoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -27,73 +23,61 @@ class _LoginPageState extends State<ManagerLoginScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus();
   }
 
 
-
-  Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmail = prefs.getString('email');
-    final savedPassword = prefs.getString('password');
-
-    if (savedEmail != null && savedPassword != null) {
-      User? user = await _auth.SigninWithEmailAndPassword(savedEmail, savedPassword);
-      if (user != null) {
-        setState(() {
-          email = savedEmail;
-        });
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EmployeeDashboard(userEmail: email!),
-          ),
-        );
-      }
-    }
-  }
-
-  void _login() async {
+  Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       String username = _usernameController.text.trim();
       String password = _passwordController.text.trim();
 
-      User? user = await _auth.SigninWithEmailAndPassword(username, password);
+      // API URL
+      String url = 'https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/login/manager';
 
-      int? isAdmin;
+      // Create the request body
+      Map<String, String> requestBody = {
+        'email': username,
+        'password': password
+      };
+
+      print(_usernameController.text);
+      print(_passwordController.text);
+
 
       try {
-        DocumentSnapshot documentSnapshot = await FirebaseFirestore.instance
-            .collection("EmployeeDetails")
-            .doc(username)
-            .get();
+        // Make the POST request
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(requestBody),
+        );
+        var jsonResponse = json.decode(response.body);
+        if (response.statusCode == 200) {
 
-        if (documentSnapshot.exists && documentSnapshot.get("admin") != null) {
-          isAdmin = documentSnapshot.get("admin");
+          if(jsonResponse['message'] == 'Login successful'){
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AdminDashboard(userEmail: username,),
+              ),
+            );
+          }
+          // If the server returns a 200 OK response
+          MessageHandler.showCustomMessage(jsonResponse['message'],backgroundColor: Colors.green);
+        } else {
+          // If the server did not return a 200 OK response
+          MessageHandler.showCustomMessage(jsonResponse['message'],backgroundColor: Colors.red);
         }
-      } catch (e) {
-        print('Error fetching data: $e');
+      } catch (error) {
+        // Handle any errors that occur during the request
+        MessageHandler.somethingWentWrong();
+        print(error);
       }
 
-      if(user!= null)
-      {
-        if(isAdmin == 1) {
-          MessageHandler.showLoginSuccess();
-          Navigator.push(context, MaterialPageRoute(builder: (context) => AdminDashboard()));
-        }
-        else{
-          MessageHandler.showLoginFailed();
-          // Navigator.push(context, MaterialPageRoute(builder: (context) => UserDashboard()));
-        }
-
-      }
-      else{
-        MessageHandler.showLoginFailed();
-      }
+    }else{
+      MessageHandler.fillAllDetails();
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -111,65 +95,107 @@ class _LoginPageState extends State<ManagerLoginScreen> {
                   Row(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.arrow_back, color: Colors.black, size: 30,),
+                        icon: Icon(Icons.arrow_back, color: Colors.black, size: 30),
                         onPressed: () {
                           Navigator.pop(context);
                         },
                       ),
-                      Text("Login As Manager", style: TextStyle(fontWeight: FontWeight.w400),)
+                      SizedBox(width: 10),
+                      Text(
+                        "Login as Manager",
+                        style: TextStyle(fontWeight: FontWeight.w400, fontSize: 20),
+                      ),
                     ],
                   ),
                   SizedBox(height: 20),
-                  Align(
-                    alignment: Alignment.topLeft,
+                  Center(
+                    child: CircleAvatar(
+                      radius: 75,
+                      backgroundImage: AssetImage('assets/images/manager.jpg'), // Add your image path here
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Center(
                     child: Text(
-                      'Login with \nUsername and password',
-                      style: TextStyle(fontSize: 40, fontWeight: FontWeight.w600),
+                      'Login',
+                      style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  SizedBox(height: 80),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: InputDecoration(
-                      fillColor: Colors.white,
-                      filled: true,
-                      labelText: 'Username',
-                      border: OutlineInputBorder(),
+                  SizedBox(height: 30),
+                  Container(
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.5),
+                          spreadRadius: 5,
+                          blurRadius: 7,
+                          offset: Offset(0, 3), // changes position of shadow
+                        ),
+                      ],
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your username';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 20.0),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      fillColor: Colors.white,
-                      filled: true,
-                      border: OutlineInputBorder(),
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _usernameController,
+                          decoration: InputDecoration(
+                            fillColor: Colors.white,
+                            filled: true,
+                            labelText: 'Username',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your username';
+                            }
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 20.0),
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            fillColor: Colors.white,
+                            filled: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                          ),
+                          obscureText: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            return null;
+                          },
+                        ),
+                        SizedBox(height: 20.0),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFF11359A),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: EdgeInsets.symmetric(vertical: 15),
+                            ),
+                            onPressed: _login,
+                            child: Text(
+                              'Login',
+                              style: TextStyle(color: Colors.white, fontSize: 18),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 20.0),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF11359A),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onPressed: _login,
-                    child: Text('Login', style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
@@ -188,23 +214,3 @@ class _LoginPageState extends State<ManagerLoginScreen> {
   }
 }
 
-
-
-Future<int> fetchData(String docsID) async {
-  try {
-    DocumentSnapshot documentSnapshot = await FirebaseFirestore.instance
-        .collection("EmployeeDetails")
-        .doc(docsID)
-        .get();
-
-    if (documentSnapshot.exists && documentSnapshot.get("admin") != null) {
-      int isAdmin = documentSnapshot.get("admin");
-      return isAdmin;
-    } else {
-      return 0;
-    }
-  } catch (e) {
-    print('Error fetching data: $e');
-    return 0;
-  }
-}

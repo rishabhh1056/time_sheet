@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:text_marquee/text_marquee.dart';
+import 'package:time_sheet/HrDashboard/LeaveRequest.dart';
+import 'package:time_sheet/adminDashboard/Screens/AssignedTask.dart';
 import 'package:time_sheet/color/AppColors.dart';
 import 'Screens/AssignedTask.dart';
 import 'Screens/LeaveRequest.dart';
@@ -46,165 +48,106 @@ class EmployeeDashboard extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch the cards to the full width
         children: [
-          _buildUpdateBoard(),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0), // Outer padding
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch the cards to the full width
-                children: [
-                  // First Card
-                  Card(
-                    margin: EdgeInsets.only(bottom: 20), // Margin between cards
-                    elevation: 4.0,
-                    child: InkWell(
-                      onTap: () {
-                        // Navigate to a new screen on tap
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => UserPanelAssignedTask(userEmail: userEmail)),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0), // Card inner padding
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              'Total Assign Tasks',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 8.0),
-                            Text(
-                              'View and manage all assigned tasks.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Second Card
-                  Card(
-                    margin: EdgeInsets.only(bottom: 20), // Margin between cards
-                    elevation: 4.0,
-                    child: InkWell(
-                      onTap: () {
-                        // Navigate to the TimeSheetForm screen on tap
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => TimeSheetForm(userEmail: userEmail)),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0), // Card inner padding
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              'Make Today\'s Time Sheet',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 8.0),
-                            Text(
-                              'Fill out the time sheet for today\'s work.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Third Card
-                  Card(
-                    margin: EdgeInsets.only(bottom: 20), // Margin between cards
-                    elevation: 4.0,
-                    child: InkWell(
-                      onTap: () {
-                        // Navigate to the UpdateProjectStatus screen on tap
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => UpdateProjectStatus(userEmail: userEmail)),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0), // Card inner padding
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              'Update Your Task',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 8.0),
-                            Text(
-                              'Provide the status of your task.',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  //forth card
-                  Card(
-                    margin: EdgeInsets.only(bottom: 20), // Margin between cards
-                    elevation: 4.0,
-                    child: InkWell(
-                      onTap: () {
-                        // Navigate to the UpdateProjectStatus screen on tap
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => RequestLeavePage(),));
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0), // Card inner padding
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              'Leave Request',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 8.0),
-                            Text(
-                              'write a form to HR for leave request',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            child: GridView.count(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12.0,
+              crossAxisSpacing: 12.0,
+              padding: EdgeInsets.only(left: 10, right: 10, top: 2, bottom: 0),
+              children: [
+                _buildCard(
+                    AssetImage('assets/images/task.png'),
+                    'Assigned Task',
+                    Colors.white12,
+                        (){
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> UserPanelAssignedTask(userEmail: userEmail,)));
+                    }
+                ),
+                _buildCard(
+                    AssetImage('assets/images/timesheetUser.png'),
+                    'Time Sheet',
+                    Colors.white12,
+                        (){
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> TimeSheetForm(userEmail: userEmail)));
+                    }
+                ),
+                _buildCard(
+                    AssetImage('assets/images/leaveReq.png'),
+                    'Leave Request',
+                    Colors.white12,
+                        (){
+                          Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestPage()));
+                    }
+                ),
+                _buildCard(
+                    AssetImage('assets/images/status.png'),
+                    'Leave Status',
+                    Colors.white12,
+                        (){
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestsPage()));
+                    }
+                ),
+                _buildCard(
+                    AssetImage('assets/images/attendence.png'),
+                    'Attendance',
+                    Colors.white12,
+                        (){
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestsPage()));
+                    }
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+
+  Widget _buildCard(
+      ImageProvider<Object> image,
+      String text,
+      Color bgColor,
+      VoidCallback onPressed, // Function parameter for onPressed
+      ) {
+    return Card(
+      elevation: 5.0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14.0),
+      ),
+      child: GestureDetector(
+        onTap: onPressed, // Trigger onPressed function when tapped
+        child: Container(
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(10.0),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80.0,
+                height: 80.0,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10.0),
+                  image: DecorationImage(
+                    image: image,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              SizedBox(height: 10.0),
+              Text(
+                text,
+                style: TextStyle(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -265,25 +208,4 @@ class EmployeeDashboard extends StatelessWidget {
     return username;
   }
 
-  Widget _buildUpdateBoard() {
-    return Container(
-      width: double.infinity,
-      height: 30,
-      color: Colors.blueAccent,
-      child: TextMarquee(
-        'Daily Hr updates Here *Updateds* *Updateds* *Updateds* *Updateds* *Updateds* *Updateds* *Updateds* *Updateds* *Updateds* *Updateds* *Updateds*',
-        spaceSize: 72,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-          fontStyle: FontStyle.italic,
-        ),
-        duration: Duration(seconds: 12),
-        delay: Duration(seconds: 1),
-        rtl: true,
-        startPaddingSize: 50,
-      ),
-    );
-  }
 }

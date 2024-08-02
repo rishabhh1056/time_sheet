@@ -1,8 +1,12 @@
+import 'dart:io';
+
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'IntroScreen/IntroScreen.dart';
 
 void main() async {
+  HttpOverrides.global = MyHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
       options: FirebaseOptions(
@@ -11,6 +15,8 @@ void main() async {
         messagingSenderId: 'messagingSenderId',
         projectId: 'fir-4d737',
         storageBucket: 'fir-4d737.appspot.com',   ));
+  WidgetsFlutterBinding.ensureInitialized();
+  await AndroidAlarmManager.initialize();
   runApp(MyApp());
 }
 
@@ -29,3 +35,10 @@ class MyApp extends StatelessWidget {
 
 
 
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}

@@ -1,26 +1,93 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 import 'package:time_sheet/color/AppColors.dart';
 
-import '../../massage/MassageHandler.dart';
-
-class RequestLeavePage extends StatefulWidget {
+class LeaveRequestPage extends StatefulWidget {
   @override
-  _RequestLeavePageState createState() => _RequestLeavePageState();
+  _LeaveRequestPageState createState() => _LeaveRequestPageState();
 }
 
-class _RequestLeavePageState extends State<RequestLeavePage> {
+class _LeaveRequestPageState extends State<LeaveRequestPage> {
   final _formKey = GlobalKey<FormState>();
-  final _firstNameController = TextEditingController();
-  final _profileController = TextEditingController();
-  final _startDateController = TextEditingController();
-  final _endDateController = TextEditingController();
-  String _reason = 'Sick Leave';
+  final _reasonController = TextEditingController();
+  DateTime? _startDate;
+  DateTime? _endDate;
+  int _totalDays = 0;
 
-  final List<String> _reasons = ['Sick Leave', 'Personal Leave', 'Vacation'];
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
 
-  CollectionReference LeaveRequest = FirebaseFirestore.instance.collection(
-      "requestLeave");
+      try {
+        var response = await http.post(
+          Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/leaverequest'), // Replace with your API URL
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'email': 'rk@gmail.com',
+            'name': 'rishabh',
+            'profile': 'profile',
+            'reason': _reasonController.text,
+            'start_date': _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : '',
+            'end_date': _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : '',
+            'total_days': _totalDays,
+          }),
+        );
+
+        var responseBody = jsonDecode(response.body);
+         print(response.statusCode);
+        if (response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Leave request submitted successfully!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to submit leave request: ${responseBody['message']}')),
+          );
+        }
+      } catch (e) {
+        print('Error: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e')),
+        );
+      }
+    }
+  }
+
+  void _selectDate(BuildContext context, bool isStartDate) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+    );
+
+    if (picked != null && picked != DateTime.now()) {
+      setState(() {
+        if (isStartDate) {
+          _startDate = picked;
+          if (_endDate != null) {
+            _calculateTotalDays();
+          }
+        } else {
+          _endDate = picked;
+          if (_startDate != null) {
+            _calculateTotalDays();
+          }
+        }
+      });
+    }
+  }
+
+  void _calculateTotalDays() {
+    if (_startDate != null && _endDate != null) {
+      setState(() {
+        _totalDays = _endDate!.difference(_startDate!).inDays + 1; // +1 to include both start and end date
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,169 +95,101 @@ class _RequestLeavePageState extends State<RequestLeavePage> {
       backgroundColor: AppColors.userPrimaryLightColor,
       appBar: AppBar(
         backgroundColor: AppColors.userPrimaryColor,
-        title: Text('Request Leave', style: TextStyle(color: Colors.white)),
+        title: Text('Leave Request', style: TextStyle(color: Colors.white),),
+        elevation: 0,
         iconTheme: IconThemeData(color: Colors.white),
       ),
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              shrinkWrap: true,
-              children: <Widget>[
-                TextFormField(
-                  controller: _firstNameController,
-                  decoration: InputDecoration(
-                    labelText: 'First Name',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16.0),
+        child: Card(
+          elevation: 5,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Request Leave',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your first name';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: _profileController,
-                  decoration: InputDecoration(
-                    labelText: 'Profile',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _reasonController,
+                    decoration: InputDecoration(
+                      labelText: 'Reason',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter the reason';
+                      }
+                      return null;
+                    },
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your profile';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    labelText: 'Reason',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(),
+                  SizedBox(height: 16),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          _startDate != null ? 'Start Date: ${DateFormat('yyyy-MM-dd').format(_startDate!)}' : 'Start Date',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => _selectDate(context, true),
+                        child: Text('Select Start Date'),
+                      ),
+                    ],
                   ),
-                  value: _reason,
-                  items: _reasons.map((String reason) {
-                    return DropdownMenuItem<String>(
-                      value: reason,
-                      child: Text(reason),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _reason = value!;
-                    });
-                  },
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: _startDateController,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: 'Start Date',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(),
-                    suffixIcon: Icon(Icons.calendar_today),
+                  SizedBox(height: 16),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          _endDate != null ? 'End Date: ${DateFormat('yyyy-MM-dd').format(_endDate!)}' : 'End Date',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => _selectDate(context, false),
+                        child: Text('Select End Date'),
+                      ),
+                    ],
                   ),
-                  onTap: _pickStartDate,
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: _endDateController,
-                  readOnly: true,
-                  decoration: InputDecoration(
-                    labelText: 'End Date',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(),
-                    suffixIcon: Icon(Icons.calendar_today),
+                  SizedBox(height: 16),
+                  Text(
+                    'Total Days: $_totalDays',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  onTap: _pickEndDate,
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.userPrimaryButtonColor,
-                      shape: ContinuousRectangleBorder(
-                          borderRadius: BorderRadius.circular(10))),
-                  onPressed: _submitForm,
-                  child: Text('Submit', style: TextStyle(color: Colors.white),),
-                ),
-              ],
+                  SizedBox(height: 32),
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: _submitForm,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.userPrimaryColor,
+                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: Text('Submit Leave Request', style: TextStyle(fontSize: 14, color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _pickStartDate() async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _startDateController.text =
-        pickedDate.toLocal().toString().split(' ')[0];
-      });
-    }
-  }
-
-  Future<void> _pickEndDate() async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-
-    if (pickedDate != null) {
-      setState(() {
-        _endDateController.text = pickedDate.toLocal().toString().split(' ')[0];
-      });
-    }
-  }
-
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // Perform form submission logic here, such as sending data to a server
-      print('First Name: ${_firstNameController.text}');
-      print('Profile: ${_profileController.text}');
-      print('Reason: $_reason');
-      print('Start Date: ${_startDateController.text}');
-      print('End Date: ${_endDateController.text}');
-
-      LeaveRequest.add({
-        'Name': _firstNameController.text,
-        'Profile': _profileController.text,
-        'Reason': _reason,
-        'Start Date': _startDateController.text,
-        'End Date': _endDateController.text
-      }).then((value) {
-        MessageHandler.showCustomMessage(
-            "Submit Leave Request", backgroundColor: Colors.green);
-        _firstNameController.clear();
-        _profileController.clear();
-        _startDateController.clear();
-        _endDateController.clear();
-      }).catchError((error) {
-        MessageHandler.showCustomMessage(
-            "Failed Leave Request", backgroundColor: Colors.red);
-      });
-    }
   }
 }

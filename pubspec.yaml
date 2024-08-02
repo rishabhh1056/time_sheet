@@ -53,6 +53,10 @@ dependencies:
   text_marquee: ^0.0.2
   image_picker: ^1.1.2
   firebase_storage: ^11.7.7
+  http: 1.2.2
+  http_parser: ^4.0.0
+  flutter_local_notifications: ^9.0.0
+  android_alarm_manager_plus: ^2.0.2
 
 
 
