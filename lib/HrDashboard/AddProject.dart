@@ -94,7 +94,7 @@ class _AddProjectPageState extends State<AddProjectPage> {
     return Scaffold(
       backgroundColor: AppColors.userPrimaryLightColor,
       appBar: AppBar(
-        title: Text('Add Project', style: TextStyle(color: Colors.white)),
+        title: Text('Assign Project', style: TextStyle(color: Colors.white)),
         iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppColors.userPrimaryColor,
       ),
@@ -354,12 +354,12 @@ class _AddProjectPageState extends State<AddProjectPage> {
 
         // If the server returns a 201 Created response
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('successfully add project'),
+          content: Text('successfully add project ')
         ));
       } else {
         // If the server did not return a 201 Created response
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to add Project'),
+          content: Text('Already Assigned Project'),
         ));
       }
     } catch (error) {

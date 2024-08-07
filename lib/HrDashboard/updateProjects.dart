@@ -31,7 +31,7 @@ class _UpdateProjectsState extends State<UpdateProjects> {
       ApiData = jsonResponse;
       if (jsonResponse['status'] == 'success') {
         setState(() {
-          _projectsData = jsonResponse['data'];
+          _projectsData = List.from(jsonResponse['data'].reversed);
           MessageHandler.showCustomMessage(jsonResponse['message'], backgroundColor: Colors.green,);
         });
       } else {

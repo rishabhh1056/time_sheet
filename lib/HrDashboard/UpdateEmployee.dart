@@ -28,7 +28,7 @@ class _EmployeePageState extends State<EmployeePage> {
       ApiData = jsonResponse;
       if (jsonResponse['status'] == 1) {
         setState(() {
-          _employeeData = jsonResponse['data'];
+          _employeeData = List.from(jsonResponse['data'].reversed);
         });
       } else {
         print('Error: ${jsonResponse['message']}');
@@ -132,7 +132,7 @@ class _EmployeePageState extends State<EmployeePage> {
                     icon: Icon(Icons.delete),
                     onPressed: () {
                       _deleteEmployee(employee['id']);
-                      print(employee['id']);
+                      print('${employee['id']}===============');
                     },
                   ),
                 ],

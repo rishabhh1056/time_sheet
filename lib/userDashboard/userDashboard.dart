@@ -1,21 +1,69 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:text_marquee/text_marquee.dart';
-import 'package:time_sheet/HrDashboard/LeaveRequest.dart';
-import 'package:time_sheet/adminDashboard/Screens/AssignedTask.dart';
 import 'package:time_sheet/color/AppColors.dart';
+import 'package:time_sheet/userDashboard/Screens/AttendenceForm.dart';
+import '../massage/MassageHandler.dart';
 import 'Screens/AssignedTask.dart';
 import 'Screens/LeaveRequest.dart';
+import 'Screens/LeaveStatus.dart';
 import 'Screens/TimeSheet.dart';
+import 'package:http/http.dart' as http;
 import 'Screens/UpdateProjectStatus.dart';
 
-class EmployeeDashboard extends StatelessWidget {
+class EmployeeDashboard extends StatefulWidget {
   final String userEmail;
 
   EmployeeDashboard({required this.userEmail});
+
+  @override
+  _EmployeeDashboardState createState() => _EmployeeDashboardState();
+}
+
+class _EmployeeDashboardState extends State<EmployeeDashboard> {
+  late String userEmail;
+  late List<dynamic> _projectsData;
+   late final String? name;
+   late final String? profile;
+
+  Map<DateTime, String> _attendanceData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    userEmail = widget.userEmail;
+    _fetchEmployeeDetail();
+    _fetchAttendanceData();// Call method in initState to fetch employee details
+  }
+
+  Future<void> _fetchEmployeeDetail() async {
+    try {
+      var response = await http.get(Uri.parse(
+          'https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/users/email/$userEmail'));
+      var jsonResponse = json.decode(response.body);
+
+      print(response.statusCode);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          _projectsData = jsonResponse['data'];
+          name = _projectsData[0]['name'];
+          profile = _projectsData[0]['profile'];
+
+          _markAttendance('present');
+        });
+      } else {
+        MessageHandler.showCustomMessage(
+            jsonResponse['message'], backgroundColor: Colors.red);
+      }
+      print(_projectsData);
+    } catch (e) {
+      MessageHandler.showCustomMessage(
+          'Something went wrong: $e', backgroundColor: Colors.red);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +124,7 @@ class EmployeeDashboard extends StatelessWidget {
                     'Leave Request',
                     Colors.white12,
                         (){
-                          Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestPage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestPage(userEmail: userEmail,)));
                     }
                 ),
                 _buildCard(
@@ -84,7 +132,7 @@ class EmployeeDashboard extends StatelessWidget {
                     'Leave Status',
                     Colors.white12,
                         (){
-                      Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestsPage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveStatus(userEmail: userEmail,)));
                     }
                 ),
                 _buildCard(
@@ -92,7 +140,7 @@ class EmployeeDashboard extends StatelessWidget {
                     'Attendance',
                     Colors.white12,
                         (){
-                      Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestsPage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> AttendanceForm(userEmail: userEmail, name: name??'', profile: profile??'',)));
                     }
                 ),
               ],
@@ -102,7 +150,6 @@ class EmployeeDashboard extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _buildCard(
       ImageProvider<Object> image,
@@ -208,4 +255,87 @@ class EmployeeDashboard extends StatelessWidget {
     return username;
   }
 
+
+  Future<void> _markAttendance(String status) async {
+    final currentDate = DateTime.now();
+    final formattedDate = DateTime(currentDate.year, currentDate.month, currentDate.day);
+
+    if (_attendanceData.containsKey(formattedDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Attendance for today is already marked')),
+      );
+      return;
+    }
+
+    // Check if today is Sunday
+    final isSunday = currentDate.weekday == DateTime.sunday;
+    final finalStatus = isSunday ? 'Sunday' : status;
+
+    final url = Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/attendences');
+
+    final data = {
+      'email': widget.userEmail,
+      'name': name??'',
+      'profile': profile??'',
+      'attendence': finalStatus,
+    };
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(data),
+      );
+      print(response.statusCode);
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Attendance marked as $finalStatus')),
+        );
+         // Refresh the attendance data
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to mark attendance')),
+        );
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $error')),
+      );
+    }
+  }
+
+
+  Future<void> _fetchAttendanceData() async {
+    // Example API endpoint for fetching attendance data
+    final url = Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/attendences/email/${widget.userEmail}');
+
+    try {
+      final response = await http.get(url);
+      print(response.statusCode);
+      var jsonResponse = json.decode(response.body);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final List<dynamic> attendanceList = data['data'];
+
+        setState(() {
+          _attendanceData.clear();
+          for (var attendance in attendanceList) {
+            DateTime date = DateTime.parse(attendance['created_at']);
+            DateTime formattedDate = DateTime(date.year, date.month, date.day);
+            _attendanceData[formattedDate] = attendance['attendence'];
+            print("======$_attendanceData");
+            print("--------${_attendanceData[formattedDate]}");
+          }
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(jsonResponse['message'])),
+        );
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $error')),
+      );
+    }
+  }
 }

@@ -55,6 +55,7 @@ class _EmployeeFormState extends State<EmployeeForm> {
         setState(() {
           _image = File(pickedFile.path);
         });
+        print("Image picked: ${_image!.path}");
       } else {
         print("No image selected");
         ScaffoldMessenger.of(context).showSnackBar(
@@ -68,7 +69,6 @@ class _EmployeeFormState extends State<EmployeeForm> {
       );
     }
   }
-
   void _onRoleChanged(String? newValue) {
     setState(() {
       _selectedRole = newValue;
@@ -271,7 +271,6 @@ class _EmployeeFormState extends State<EmployeeForm> {
         request.fields['name'] = _userNameController.text;
         request.fields['email'] = _emailController.text;
         request.fields['password'] = _passwordController.text;
-        // request.fields['password_confirmation'] = _passwordConfirmationController.text;
         request.fields['profile'] = _profileController.text;
         request.fields['contact'] = _phoneNumberController.text;
         request.fields['per_hour_cost'] = _perHoursController.text;
@@ -279,6 +278,7 @@ class _EmployeeFormState extends State<EmployeeForm> {
         request.fields['status_code'] = _selectedRoleCode.toString();
 
         if (_image != null) {
+          print("Image path: ${_image!.path}");
           request.files.add(await http.MultipartFile.fromPath(
             'imageUrl',
             _image!.path,
@@ -290,27 +290,29 @@ class _EmployeeFormState extends State<EmployeeForm> {
         print('Request Fields: ${request.fields}');
         print('Request Headers: ${request.headers}');
 
+        // Send the request
         var response = await request.send();
-        print('Response Status Code: ${response.statusCode}');
-        var responseBody = await response.stream.bytesToString();
-        print('Response Body: $responseBody');
 
-        if (response.statusCode == 201) {
+        if (response.statusCode == 200) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Employee added successfully!')),
+            SnackBar(content: Text('Employee added successfully')),
           );
         } else {
+          print("Failed to add employee. Status code: ${response.statusCode}");
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to add employee: $responseBody')),
+            SnackBar(content: Text('Failed to add employee')),
           );
         }
       } catch (e) {
-        print('Error: $e');
+        print("Error adding employee: $e");
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred: $e')),
+          SnackBar(content: Text('Failed to add employee: $e')),
         );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
-
 }

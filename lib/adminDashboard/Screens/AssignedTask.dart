@@ -14,7 +14,7 @@ class AssignedTask extends StatelessWidget {
     if (response.statusCode == 200) {
       Map<String, dynamic> jsonResponse = json.decode(response.body);
       if (jsonResponse['status'] == 'success') {
-        List<dynamic> tasks = jsonResponse['data'];
+        List<dynamic> tasks = List.from(jsonResponse['data'].reversed);
         return tasks.map((task) => Task.fromJson(task)).toList();
       } else {
         throw Exception('Failed to load tasks: ${jsonResponse['message']}');

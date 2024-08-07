@@ -8,14 +8,14 @@ import 'package:time_sheet/HrDashboard/updateProjectForm.dart';
 import 'package:time_sheet/color/AppColors.dart';
 import '../../massage/MassageHandler.dart';
 
-class AssignedProjects extends StatefulWidget {
+class LeaveStatus extends StatefulWidget {
   final String userEmail;
-  AssignedProjects({required this.userEmail});
+  LeaveStatus({required this.userEmail});
   @override
-  _AssignedProjectsState createState() => _AssignedProjectsState();
+  _LeaveStatusState createState() => _LeaveStatusState();
 }
 
-class _AssignedProjectsState extends State<AssignedProjects> {
+class _LeaveStatusState extends State<LeaveStatus> {
   late List<dynamic> _projectsData = [];
   late Map<String, dynamic> ApiData;
 
@@ -27,13 +27,12 @@ class _AssignedProjectsState extends State<AssignedProjects> {
 
   Future<void> fetchEmployeeData() async {
     try {
-      var response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/projects/email/${widget.userEmail}')); // Replace with your actual API endpoint
+      var response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/leaverequests/email/${widget.userEmail}')); // Replace with your actual API endpoint
       var jsonResponse = json.decode(response.body);
       ApiData = jsonResponse;
       if (jsonResponse['status'] == 1) {
         setState(() {
-          _projectsData = List.from(jsonResponse['data'].reversed);
-          print(_projectsData);
+          _projectsData = jsonResponse['data'];
           MessageHandler.showCustomMessage(jsonResponse['message'], backgroundColor: Colors.green,);
         });
       } else {
@@ -46,7 +45,7 @@ class _AssignedProjectsState extends State<AssignedProjects> {
 
 
   Future<void> deleteData(int id) async {
-    var response = await http.delete(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/projects/delete/$id'));
+    var response = await http.delete(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/leaverequests/$id'));
     var jsonResponse = json.decode(response.body);
     Fluttertoast.showToast(msg: jsonResponse['message']);
   }
@@ -66,7 +65,7 @@ class _AssignedProjectsState extends State<AssignedProjects> {
       backgroundColor: AppColors.userPrimaryLightColor,
       appBar: AppBar(
         backgroundColor: AppColors.userPrimaryColor,
-        title: Text('Projects Details',style: TextStyle(color: Colors.white),),
+        title: Text('Leave Status',style: TextStyle(color: Colors.white),),
         iconTheme: IconThemeData(color: Colors.white),
       ),
       body: ListView.builder(
@@ -82,37 +81,37 @@ class _AssignedProjectsState extends State<AssignedProjects> {
                 side: BorderSide(color: Colors.grey)
             ),
             child: ListTile(
-              title: Text(' ${projects['project_name'] ?? 'No project_name'}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),),
+              title: Text(' ${projects['status'] ?? 'Pending'}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),),
 
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Text('client_name:      ',      style: TextStyle(fontWeight: FontWeight.w600),),
-                      Text(' ${projects['client_name'] ?? 'No client_name'}'),
+                      const Text('Reason:      ',      style: TextStyle(fontWeight: FontWeight.w600),),
+                      Text(' ${projects['reason'] ?? 'No reason'}'),
                     ],
                   ),
                   SizedBox(height: 4,),
                   Row(
                     children: [
-                      Text('assign_time: ',style: TextStyle(fontWeight: FontWeight.w600)),
-                      Text('${projects['assign_time'] ?? 'No assign_time'}', style: TextStyle(color: Colors.green),),
+                      Text('Start_date: ',style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text('${projects['start_date'] ?? 'No start_date'}', style: TextStyle(color: Colors.green),),
                     ],
                   ),
                   SizedBox(height: 4,),
                   Row(
                     children: [
-                      Text('deadline_time: ',style: TextStyle(fontWeight: FontWeight.w600)),
-                      Text('${projects['deadline_time'] ?? 'No deadline_time'}', style: TextStyle(color: Colors.red),),
+                      Text('End_date: ',style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text('${projects['end_date'] ?? 'No end_date'}', style: TextStyle(color: Colors.red),),
                     ],
                   ),
                   SizedBox(height: 4,),
                   Row(
                     children: [
-                      Flexible(child: Text('description: ',style: TextStyle(fontWeight: FontWeight.w600))),
+                      Flexible(child: Text('total_days: ',style: TextStyle(fontWeight: FontWeight.w600))),
                       Flexible(
-                        child: Text('${projects['project_des'] ?? 'No project_des'}',
+                        child: Text('${projects['total_days'] ?? 'No total_days'}',
                           overflow: TextOverflow.visible,),
                         fit: FlexFit.loose,
                         flex: 2,),

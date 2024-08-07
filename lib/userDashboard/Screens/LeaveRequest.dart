@@ -5,7 +5,11 @@ import 'dart:convert';
 
 import 'package:time_sheet/color/AppColors.dart';
 
+import '../../massage/MassageHandler.dart';
+
 class LeaveRequestPage extends StatefulWidget {
+  final String userEmail;
+  LeaveRequestPage({required this.userEmail});
   @override
   _LeaveRequestPageState createState() => _LeaveRequestPageState();
 }
@@ -16,6 +20,36 @@ class _LeaveRequestPageState extends State<LeaveRequestPage> {
   DateTime? _startDate;
   DateTime? _endDate;
   int _totalDays = 0;
+  late List<dynamic> _projectsData;
+
+  @override
+  void initState() {
+    _fetchEmployeeDetail();
+    super.initState();
+  }
+
+  Future<void> _fetchEmployeeDetail() async {
+    try {
+      var response = await http.get(Uri.parse(
+          'https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/users/email/${widget.userEmail}'));
+      var jsonResponse = json.decode(response.body);
+
+       print(response.statusCode);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          _projectsData = jsonResponse['data'];
+        });
+      } else {
+        MessageHandler.showCustomMessage(
+            jsonResponse['message'], backgroundColor: Colors.red);
+      }
+      print(_projectsData);
+    } catch (e) {
+      MessageHandler.showCustomMessage(
+          'Something went wrong: $e', backgroundColor: Colors.red);
+    }
+  }
+
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
@@ -26,9 +60,9 @@ class _LeaveRequestPageState extends State<LeaveRequestPage> {
           Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/leaverequest'), // Replace with your API URL
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            'email': 'rk@gmail.com',
-            'name': 'rishabh',
-            'profile': 'profile',
+            'email': _projectsData[0]['email'],
+            'name': _projectsData[0]['name'],
+            'profile': _projectsData[0]['profile'],
             'reason': _reasonController.text,
             'start_date': _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : '',
             'end_date': _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : '',

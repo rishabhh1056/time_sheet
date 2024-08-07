@@ -59,4 +59,5 @@ flutter {
 }
 dependencies{
     implementation platform('com.google.firebase:firebase-bom:33.1.1')
+//    implementation ("com.transistorsoft:tsbackgroundfetch:3.0.0")
 }

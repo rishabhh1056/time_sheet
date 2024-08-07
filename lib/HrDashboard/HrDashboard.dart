@@ -1,62 +1,121 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:time_sheet/HrDashboard/updateNewProjects.dart';
 import 'package:time_sheet/HrDashboard/updateProjects.dart';
 import '../color/AppColors.dart';
+import '../massage/MassageHandler.dart';
 import 'AddEmployees.dart';
 import 'AddNewProject.dart';
 import 'AddProject.dart';
+import 'Attendence.dart';
 import 'LeaveRequest.dart';
 import 'UpdateEmployee.dart';
+import 'package:http/http.dart' as http;
 
 
 
-class HrDashboard extends StatelessWidget {
+class HrDashboard extends StatefulWidget {
+
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-        backgroundColor: AppColors.AdminThemeBackColor,
-        appBar: AppBar(
-          title: Text('HR Dashboard', style: TextStyle(color: Colors.white),),
-          backgroundColor: AppColors.userPrimaryColor,
-          iconTheme: IconThemeData(color: Colors.white),
-          actions: [
-            IconButton(onPressed: (){}, icon: Icon(Icons.notifications)),
-            IconButton(onPressed: (){}, icon: Icon(Icons.logout)),
-          ],
-        ),
-        body: Dashboard(),
-        floatingActionButtonAnimator: CustomFabAnimator(),
-
-        floatingActionButton: GestureDetector(
-          onLongPress: () {
-         const snackBar = SnackBar(content: Text('announcement any updates'),duration: Duration(seconds: 2),shape: ContinuousRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(10))),);
-         ScaffoldMessenger.of(context).showSnackBar(snackBar);
-          },
-          child: FloatingActionButton(
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => BottomSheetContent(),
-              );
-            }, // Add action on normal press if needed
-            child: Icon(Icons.announcement,color: Colors.white,),
-            backgroundColor: AppColors.userPrimaryColor,
-          ),
-        ),
-    );
-  }
+  _HrDashboardState createState() => _HrDashboardState();
 }
 
 
+class _HrDashboardState extends State<HrDashboard> {
 
-class Dashboard extends StatelessWidget {
+  List<String> userIds = [];
+  Set<String> projects = {};
+  late List<dynamic> _projectsData = [];
+  int totalUsers = 0;
+  int totalProjects = 0;
+  int totalClient = 0;
+
+  @override
+  void initState() {
+    _fetchUserIds();
+    _fetchProjects();
+    super.initState();
+  }
+
+  Future<void> _fetchUserIds() async {
+    try {
+      final response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/users/status_code/1'));
+      var jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == 1) {
+        setState(() {
+          List<dynamic> _employeeData = jsonResponse['data'];
+          userIds = _employeeData.map((employee) => employee['email'] as String).toList();
+          totalUsers = userIds.length;
+        });
+      } else {
+        throw Exception('Failed to load user IDs');
+      }
+    } catch (e) {
+      print('Error fetching user IDs: $e');
+    }
+  }
+
+  Future<void> _fetchProjects() async {
+    try {
+      var response = await http.get(Uri.parse('https://k61.644.mywebsitetransfer.com/timesheet-api/public/api/project-details')); // Replace with your actual API endpoint
+      var jsonResponse = json.decode(response.body);
+      if (jsonResponse['status'] == 'success') {
+        setState(() {
+          _projectsData = List.from(jsonResponse['data'].reversed);
+          totalProjects = _projectsData.length;
+          print('======$totalProjects');
+          for(var cleint in _projectsData){
+             projects.add(cleint['client_name']);
+          }
+          totalClient = projects.length;
+          // MessageHandler.showCustomMessage(jsonResponse['message'], backgroundColor: Colors.green,);
+        });
+      } else {
+        // MessageHandler.showCustomMessage(jsonResponse['message'], backgroundColor: Colors.red,);
+      }
+    } catch (e) {
+      MessageHandler.showCustomMessage('something went wrong with pie chart$e', backgroundColor: Colors.red,);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.userPrimaryLightColor,
+      appBar: AppBar(
+        title: Text('Employee Attendence', style: TextStyle(color: Colors.white),),
+        backgroundColor: AppColors.userPrimaryColor,
+        iconTheme: IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(onPressed: (){}, icon: Icon(Icons.notifications)),
+          IconButton(onPressed: (){}, icon: Icon(Icons.logout)),
+        ],
+      ),
+
+      floatingActionButtonAnimator: CustomFabAnimator(),
+
+      floatingActionButton: GestureDetector(
+        onLongPress: () {
+          const snackBar = SnackBar(content: Text('announcement any updates'),duration: Duration(seconds: 2),shape: ContinuousRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(10))),);
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+        },
+        child: FloatingActionButton(
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => BottomSheetContent(),
+            );
+          }, // Add action on normal press if needed
+          child: Icon(Icons.announcement,color: Colors.white,),
+          backgroundColor: AppColors.userPrimaryColor,
+        ),
+      ),
+
       body: Column(
         children: [
           Expanded(
@@ -79,7 +138,7 @@ class Dashboard extends StatelessWidget {
                     'Attendance',
                     Colors.white12,
                         (){
-                      // Navigator.push(context, MaterialPageRoute(builder: (context)=> TaskAssignmentForm()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> Attendence()));
                     }
                 ),
                 _buildCard(
@@ -100,7 +159,7 @@ class Dashboard extends StatelessWidget {
                 ),
                 _buildCard(
                     AssetImage('assets/images/newProjects.png'),
-                    'Add Projects',
+                    'Assign Projects',
                     Colors.white12,
                         (){
                       Navigator.push(context, MaterialPageRoute(builder: (context)=> AddProjectPage()));
@@ -116,7 +175,7 @@ class Dashboard extends StatelessWidget {
                 ),
                 _buildCard(
                     AssetImage('assets/images/updateProject.png'),
-                    'Updates Projects',
+                    'Update Projects',
                     Colors.white12,
                         (){
                       Navigator.push(context, MaterialPageRoute(builder: (context)=> UpdateProjects()));
@@ -124,7 +183,7 @@ class Dashboard extends StatelessWidget {
                 ),
                 _buildCard(
                     AssetImage('assets/images/updates.png'),
-                    'Add New Project',
+                    'New Project',
                     Colors.white12,
                         (){
                       Navigator.push(context, MaterialPageRoute(builder: (context)=> AddNewProject()));
@@ -135,7 +194,7 @@ class Dashboard extends StatelessWidget {
                     'Logout',
                     Colors.white12,
                         (){
-                      // Navigator.push(context, MaterialPageRoute(builder: (context)=> LeaveRequestsPage()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context)=> UpdateNewProjects()));
                     }
                 ),
               ],
@@ -227,10 +286,9 @@ class Dashboard extends StatelessWidget {
             Wrap(
               alignment: WrapAlignment.spaceEvenly,
               children: [
-                _buildIndicator('Total Tasks', Colors.blue),
-                _buildIndicator('Total Employees', Colors.red),
-                _buildIndicator('Total Projects', Colors.green),
-                _buildIndicator('Total Clients', Colors.yellow),
+                _buildIndicator('Total Clients ', Colors.blue),
+                _buildIndicator('Total Projects', Colors.red),
+                _buildIndicator('Total Employees', Colors.green),
               ],
             ),
           ],
@@ -240,7 +298,7 @@ class Dashboard extends StatelessWidget {
   }
 
   List<PieChartSectionData> showingSections() {
-    return List.generate(4, (i) {
+    return List.generate(3, (i) {
       final isTouched = false;
       final fontSize = isTouched ? 25.0 : 16.0;
       final radius = isTouched ? 60.0 : 50.0;
@@ -248,8 +306,8 @@ class Dashboard extends StatelessWidget {
         case 0:
           return PieChartSectionData(
             color: Colors.blue,
-            value: 3,
-            title: '3',
+            value: totalClient.toDouble(),
+            title: '$totalClient',
             radius: radius,
             titleStyle: TextStyle(
               fontSize: fontSize,
@@ -260,8 +318,8 @@ class Dashboard extends StatelessWidget {
         case 1:
           return PieChartSectionData(
             color: Colors.red,
-            value: 12,
-            title: '12',
+            value: totalProjects.toDouble(),
+            title: '$totalProjects',
             radius: radius,
             titleStyle: TextStyle(
               fontSize: fontSize,
@@ -272,20 +330,8 @@ class Dashboard extends StatelessWidget {
         case 2:
           return PieChartSectionData(
             color: Colors.green,
-            value: 8,
-            title: '8',
-            radius: radius,
-            titleStyle: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          );
-        case 3:
-          return PieChartSectionData(
-            color: Colors.yellow,
-            value: 2,
-            title: '2',
+            value: totalUsers.toDouble(),
+            title: '$totalUsers',
             radius: radius,
             titleStyle: TextStyle(
               fontSize: fontSize,
